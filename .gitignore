@@ -1,24 +1,23 @@
-# Dependencies
+# Client
 client/node_modules/
-server/node_modules/
-
-# Build files
 client/dist/
-
-# Environment variables
 client/.env
 client/.env.local
-server/.env
 
-# Uploaded files
+# Server
+server/node_modules/
+server/.env
 server/uploads/*
 !server/uploads/.gitkeep
 
 # Logs
+*.log
 npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
 
-# Editor and system files
+# IDE
 .vscode/
-.DS_Storegit add .
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
