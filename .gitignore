@@ -1,0 +1,24 @@
+# Dependencies
+client/node_modules/
+server/node_modules/
+
+# Build files
+client/dist/
+
+# Environment variables
+client/.env
+client/.env.local
+server/.env
+
+# Uploaded files
+server/uploads/*
+!server/uploads/.gitkeep
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Editor and system files
+.vscode/
+.DS_Storegit add .
