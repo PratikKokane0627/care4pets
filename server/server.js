@@ -9,6 +9,9 @@ import authRoutes from "./routes/authRoutes.js";
 import errorMiddleware from "./middleware/errorMiddleware.js";
 import ApiError from "./utils/ApiError.js";
 
+import { protect } from "./middleware/authMiddleware.js";
+import { authorize } from "./middleware/roleMiddleware.js";
+
 dotenv.config();
 
 connectDB();
@@ -47,6 +50,8 @@ app.get("/api/health", (req, res) => {
 
 // API routes
 app.use("/api/auth", authRoutes);
+
+
 
 // 404 middleware
 app.use((req, res, next) => {
