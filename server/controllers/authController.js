@@ -63,3 +63,86 @@ export const register = asyncHandler(async (req, res) => {
     },
   });
 });
+
+
+export const login = asyncHandler(async (req, res) => {
+  const { email, password } = req.body;
+
+  // 1. Validate input
+  if (!email || !password) {
+    throw new ApiError(400, "Email and password are required");
+  }
+
+  // 2. Find user and include password
+  const user = await User.findOne({
+    email: email.toLowerCase(),
+  }).select("+password");
+
+  // Use the same message for unknown email and wrong password
+  if (!user) {
+    throw new ApiError(401, "Invalid email or password");
+  }
+
+  // 3. Compare entered password with hashed password
+  const isPasswordCorrect = await bcrypt.compare(
+    password,
+    user.password
+  );
+
+  if (!isPasswordCorrect) {
+    throw new ApiError(401, "Invalid email or password");
+  }
+
+  // 4. Check account status
+  if (user.status === "blocked") {
+    throw new ApiError(
+      403,
+      "Your account has been blocked. Contact the administrator."
+    );
+  }
+
+  if (user.status === "inactive") {
+    throw new ApiError(403, "Your account is inactive");
+  }
+
+  if (user.status === "pending") {
+    throw new ApiError(
+      403,
+      "Your account is waiting for administrator approval"
+    );
+  }
+
+  if (user.status === "rejected") {
+    throw new ApiError(
+      403,
+      "Your account application has been rejected"
+    );
+  }
+
+  // 5. Update last login
+  user.lastLogin = new Date();
+
+  await user.save({
+    validateBeforeSave: false,
+  });
+
+  // 6. Generate new JWT
+  const token = generateToken(user._id);
+
+  // 7. Send response
+  res.status(200).json({
+    success: true,
+    message: "Login successful",
+    token,
+    user: {
+      id: user._id,
+      name: user.name,
+      email: user.email,
+      phone: user.phone,
+      role: user.role,
+      status: user.status,
+      profileImage: user.profileImage,
+      lastLogin: user.lastLogin,
+    },
+  });
+});
