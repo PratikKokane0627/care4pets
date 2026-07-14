@@ -146,3 +146,25 @@ export const login = asyncHandler(async (req, res) => {
     },
   });
 });
+
+
+export const getProfile = asyncHandler(async (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: "Profile fetched successfully",
+    user: {
+      id: req.user._id,
+      name: req.user.name,
+      email: req.user.email,
+      phone: req.user.phone,
+      role: req.user.role,
+      status: req.user.status,
+      profileImage: req.user.profileImage,
+      address: req.user.address,
+      isVerified: req.user.isVerified,
+      lastLogin: req.user.lastLogin,
+      createdAt: req.user.createdAt,
+      updatedAt: req.user.updatedAt,
+    },
+  });
+});
