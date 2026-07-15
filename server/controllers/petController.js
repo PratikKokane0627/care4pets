@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import cloudinary from "../config/cloudinary.js";
 import uploadToCloudinary from "../utils/uploadToCloudinary.js";
 import Pet from "../models/Pet.js";
 import asyncHandler from "../utils/asyncHandler.js";
@@ -163,6 +164,7 @@ export const deletePet = asyncHandler(async (req, res) => {
 });
 
 
+
 export const uploadPetImage = asyncHandler(async (req, res) => {
   const { id } = req.params;
 
@@ -184,21 +186,33 @@ export const uploadPetImage = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Please upload an image");
   }
 
-  // Upload to Cloudinary
+  const oldPublicId = pet.profileImage?.publicId;
+
   const result = await uploadToCloudinary(
     req.file.buffer,
     "care4pets/pets"
   );
 
-  // Save URL
-  pet.profileImage = result.secure_url;
+  try {
+    pet.profileImage = {
+      url: result.secure_url,
+      publicId: result.public_id,
+    };
 
-  await pet.save();
+    await pet.save();
+  } catch (error) {
+    await cloudinary.uploader.destroy(result.public_id);
+    throw error;
+  }
+
+  if (oldPublicId) {
+    await cloudinary.uploader.destroy(oldPublicId);
+  }
 
   res.status(200).json({
     success: true,
     message: "Pet image uploaded successfully",
-    image: result.secure_url,
+    image: pet.profileImage,
     pet,
   });
 });
