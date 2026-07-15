@@ -45,3 +45,16 @@ export const addPet = asyncHandler(async (req, res) => {
 });
 
 
+export const getMyPets = asyncHandler(async (req, res) => {
+  const pets = await Pet.find({
+    ownerId: req.user._id,
+    isActive: true,
+  }).sort({ createdAt: -1 });
+
+  res.status(200).json({
+    success: true,
+    message: "Pets fetched successfully",
+    count: pets.length,
+    pets,
+  });
+});
