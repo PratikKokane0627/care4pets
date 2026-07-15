@@ -129,3 +129,34 @@ export const updatePet = asyncHandler(async (req, res) => {
     pet,
   });
 });
+
+
+export const deletePet = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  // Validate ObjectId
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    throw new ApiError(400, "Invalid pet ID");
+  }
+
+  // Find owner's pet
+  const pet = await Pet.findOne({
+    _id: id,
+    ownerId: req.user._id,
+    isActive: true,
+  });
+
+  if (!pet) {
+    throw new ApiError(404, "Pet not found");
+  }
+
+  // Soft Delete
+  pet.isActive = false;
+
+  await pet.save();
+
+  res.status(200).json({
+    success: true,
+    message: "Pet deleted successfully",
+  });
+});
