@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import Pet from "../models/Pet.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import ApiError from "../utils/ApiError.js";
@@ -56,5 +57,32 @@ export const getMyPets = asyncHandler(async (req, res) => {
     message: "Pets fetched successfully",
     count: pets.length,
     pets,
+  });
+});
+
+
+export const getPetById = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  // Check valid MongoDB ObjectId
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    throw new ApiError(400, "Invalid pet ID");
+  }
+
+  // Find pet belonging to logged-in owner
+  const pet = await Pet.findOne({
+    _id: id,
+    ownerId: req.user._id,
+    isActive: true,
+  });
+
+  if (!pet) {
+    throw new ApiError(404, "Pet not found");
+  }
+
+  res.status(200).json({
+    success: true,
+    message: "Pet fetched successfully",
+    pet,
   });
 });
