@@ -6,6 +6,7 @@ import morgan from "morgan";
 
 import connectDB from "./config/db.js";
 import authRoutes from "./routes/authRoutes.js";
+import petRoutes from "./routes/petRoutes.js";
 import errorMiddleware from "./middleware/errorMiddleware.js";
 import ApiError from "./utils/ApiError.js";
 
@@ -50,6 +51,7 @@ app.get("/api/health", (req, res) => {
 
 // API routes
 app.use("/api/auth", authRoutes);
+app.use("/api/pets", petRoutes);
 
 
 
