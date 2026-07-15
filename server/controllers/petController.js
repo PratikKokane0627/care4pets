@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import uploadToCloudinary from "../utils/uploadToCloudinary.js";
 import Pet from "../models/Pet.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import ApiError from "../utils/ApiError.js";
@@ -158,5 +159,46 @@ export const deletePet = asyncHandler(async (req, res) => {
   res.status(200).json({
     success: true,
     message: "Pet deleted successfully",
+  });
+});
+
+
+export const uploadPetImage = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    throw new ApiError(400, "Invalid pet ID");
+  }
+
+  const pet = await Pet.findOne({
+    _id: id,
+    ownerId: req.user._id,
+    isActive: true,
+  });
+
+  if (!pet) {
+    throw new ApiError(404, "Pet not found");
+  }
+
+  if (!req.file) {
+    throw new ApiError(400, "Please upload an image");
+  }
+
+  // Upload to Cloudinary
+  const result = await uploadToCloudinary(
+    req.file.buffer,
+    "care4pets/pets"
+  );
+
+  // Save URL
+  pet.profileImage = result.secure_url;
+
+  await pet.save();
+
+  res.status(200).json({
+    success: true,
+    message: "Pet image uploaded successfully",
+    image: result.secure_url,
+    pet,
   });
 });
