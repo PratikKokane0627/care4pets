@@ -86,3 +86,46 @@ export const getPetById = asyncHandler(async (req, res) => {
     pet,
   });
 });
+
+
+export const updatePet = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  // Validate ObjectId
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    throw new ApiError(400, "Invalid pet ID");
+  }
+
+  // Find owner's pet
+  const pet = await Pet.findOne({
+    _id: id,
+    ownerId: req.user._id,
+    isActive: true,
+  });
+
+  if (!pet) {
+    throw new ApiError(404, "Pet not found");
+  }
+
+  // Update only provided fields
+  pet.petName = req.body.petName ?? pet.petName;
+  pet.species = req.body.species ?? pet.species;
+  pet.breed = req.body.breed ?? pet.breed;
+  pet.age = req.body.age ?? pet.age;
+  pet.gender = req.body.gender ?? pet.gender;
+  pet.weight = req.body.weight ?? pet.weight;
+  pet.color = req.body.color ?? pet.color;
+  pet.dateOfBirth = req.body.dateOfBirth ?? pet.dateOfBirth;
+  pet.medicalHistory =
+    req.body.medicalHistory ?? pet.medicalHistory;
+  pet.vaccinationStatus =
+    req.body.vaccinationStatus ?? pet.vaccinationStatus;
+
+  await pet.save();
+
+  res.status(200).json({
+    success: true,
+    message: "Pet updated successfully",
+    pet,
+  });
+});
