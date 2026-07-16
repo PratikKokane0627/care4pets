@@ -1,5 +1,7 @@
+import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
-
+import cloudinary from "../config/cloudinary.js";
+import uploadToCloudinary from "../utils/uploadToCloudinary.js";
 import User from "../models/User.js";
 import VetProfile from "../models/VetProfile.js";
 import asyncHandler from "../utils/asyncHandler.js";
@@ -269,5 +271,185 @@ export const getAllVets = asyncHandler(async (req, res) => {
       limit: limitNumber,
     },
     vets: filteredVets,
+  });
+});
+
+
+export const getVetById = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    throw new ApiError(400, "Invalid veterinarian ID");
+  }
+
+  const vet = await VetProfile.findOne({
+    _id: id,
+    status: "approved",
+    isActive: true,
+  }).populate({
+    path: "userId",
+    select: "name email phone role status profileImage address",
+    match: {
+      role: "vet",
+      status: "active",
+    },
+  });
+
+  if (!vet || !vet.userId) {
+    throw new ApiError(404, "Veterinarian not found");
+  }
+
+  res.status(200).json({
+    success: true,
+    message: "Veterinarian fetched successfully",
+    vet,
+  });
+});
+export const updateVet = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    throw new ApiError(400, "Invalid veterinarian ID");
+  }
+
+  const vet = await VetProfile.findOne({
+    _id: id,
+    isActive: true,
+  });
+
+  if (!vet) {
+    throw new ApiError(404, "Veterinarian not found");
+  }
+
+  const isAdmin = req.user.role === "admin";
+
+  const isProfileOwner =
+    req.user.role === "vet" &&
+    vet.userId.toString() === req.user._id.toString();
+
+  if (!isAdmin && !isProfileOwner) {
+    throw new ApiError(
+      403,
+      "You are not authorized to update this veterinarian profile"
+    );
+  }
+
+  const allowedFields = [
+    "qualification",
+    "specialization",
+    "experience",
+    "clinicName",
+    "consultationFee",
+    "about",
+    "availableDays",
+  ];
+
+  allowedFields.forEach((field) => {
+    if (req.body[field] !== undefined) {
+      vet[field] = req.body[field];
+    }
+  });
+
+  if (req.body.clinicAddress) {
+    vet.clinicAddress = {
+      ...vet.clinicAddress.toObject(),
+      ...req.body.clinicAddress,
+    };
+  }
+
+  if (req.body.availableTime) {
+    vet.availableTime = {
+      ...vet.availableTime.toObject(),
+      ...req.body.availableTime,
+    };
+  }
+
+  // Only admin can change status fields
+  if (isAdmin) {
+    if (req.body.status !== undefined) {
+      vet.status = req.body.status;
+    }
+
+    if (req.body.isActive !== undefined) {
+      vet.isActive = req.body.isActive;
+    }
+  }
+
+  await vet.save();
+
+  const updatedVet = await VetProfile.findById(vet._id).populate(
+    "userId",
+    "name email phone role status profileImage address"
+  );
+
+  res.status(200).json({
+    success: true,
+    message: "Veterinarian profile updated successfully",
+    vet: updatedVet,
+  });
+});
+
+
+export const uploadVetImage = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    throw new ApiError(400, "Invalid veterinarian ID");
+  }
+
+  const vet = await VetProfile.findOne({
+    _id: id,
+    isActive: true,
+  });
+
+  if (!vet) {
+    throw new ApiError(404, "Veterinarian not found");
+  }
+
+  const isAdmin = req.user.role === "admin";
+
+  const isProfileOwner =
+    req.user.role === "vet" &&
+    vet.userId.toString() === req.user._id.toString();
+
+  if (!isAdmin && !isProfileOwner) {
+    throw new ApiError(
+      403,
+      "You are not authorized to update this veterinarian image"
+    );
+  }
+
+  if (!req.file) {
+    throw new ApiError(400, "Please upload an image");
+  }
+
+  const oldPublicId = vet.profileImage?.publicId;
+
+  const result = await uploadToCloudinary(
+    req.file.buffer,
+    "care4pets/vets"
+  );
+
+  try {
+    vet.profileImage = {
+      url: result.secure_url,
+      publicId: result.public_id,
+    };
+
+    await vet.save();
+  } catch (error) {
+    await cloudinary.uploader.destroy(result.public_id);
+    throw error;
+  }
+
+  if (oldPublicId) {
+    await cloudinary.uploader.destroy(oldPublicId);
+  }
+
+  res.status(200).json({
+    success: true,
+    message: "Veterinarian image uploaded successfully",
+    image: vet.profileImage,
+    vet,
   });
 });
