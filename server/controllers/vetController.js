@@ -453,3 +453,61 @@ export const uploadVetImage = asyncHandler(async (req, res) => {
     vet,
   });
 });
+
+
+export const updateAvailability = asyncHandler(async (req, res) => {
+
+  const { id } = req.params;
+
+  const vet = await VetProfile.findById(id);
+
+  if (!vet) {
+    throw new ApiError(404, "Veterinarian not found");
+  }
+
+  const isAdmin = req.user.role === "admin";
+
+  const isOwner =
+    req.user.role === "vet" &&
+    vet.userId.toString() === req.user._id.toString();
+
+  if (!isAdmin && !isOwner) {
+    throw new ApiError(
+      403,
+      "Unauthorized"
+    );
+  }
+
+  vet.availability = req.body.availability;
+
+  await vet.save();
+
+  res.json({
+    success:true,
+    message:"Availability updated",
+    availability:vet.availability
+  });
+
+});
+
+export const getAvailability = asyncHandler(async(req,res)=>{
+
+    const vet=await VetProfile.findById(req.params.id)
+    .select("availability");
+
+    if(!vet){
+        throw new ApiError(
+            404,
+            "Veterinarian not found"
+        );
+    }
+
+    res.json({
+
+        success:true,
+
+        availability:vet.availability
+
+    });
+
+});

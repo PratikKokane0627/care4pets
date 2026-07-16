@@ -95,8 +95,10 @@ const vetProfileSchema = new mongoose.Schema(
       },
     },
 
-    availableDays: {
-      type: [String],
+  availability: [
+  {
+    day: {
+      type: String,
       enum: [
         "Monday",
         "Tuesday",
@@ -106,8 +108,25 @@ const vetProfileSchema = new mongoose.Schema(
         "Saturday",
         "Sunday",
       ],
-      default: [],
+      required: true,
     },
+
+    startTime: {
+      type: String,
+      required: true,
+    },
+
+    endTime: {
+      type: String,
+      required: true,
+    },
+
+    isAvailable: {
+      type: Boolean,
+      default: true,
+    },
+  },
+],
 
     availableTime: {
       start: {

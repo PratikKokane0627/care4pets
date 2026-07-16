@@ -8,6 +8,7 @@ import connectDB from "./config/db.js";
 import authRoutes from "./routes/authRoutes.js";
 import petRoutes from "./routes/petRoutes.js";
 import vetRoutes from "./routes/vetRoutes.js";
+import appointmentRoutes from "./routes/appointmentRoutes.js";
 import errorMiddleware from "./middleware/errorMiddleware.js";
 import ApiError from "./utils/ApiError.js";
 
@@ -54,6 +55,7 @@ app.get("/api/health", (req, res) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/pets", petRoutes);
 app.use("/api/vets", vetRoutes);
+app.use("/api/appointments", appointmentRoutes);
 
 
 
