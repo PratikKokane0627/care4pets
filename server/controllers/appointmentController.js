@@ -338,3 +338,42 @@ export const getAppointmentById = asyncHandler(async (req, res) => {
     appointment,
   });
 });
+
+
+export const cancelAppointment = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    throw new ApiError(400, "Invalid appointment ID");
+  }
+
+  const appointment = await Appointment.findOne({
+    _id: id,
+    ownerId: req.user._id,
+    isActive: true,
+  });
+
+  if (!appointment) {
+    throw new ApiError(404, "Appointment not found");
+  }
+
+  if (
+    appointment.status !== "pending" &&
+    appointment.status !== "accepted"
+  ) {
+    throw new ApiError(
+      400,
+      `Cannot cancel a ${appointment.status} appointment`
+    );
+  }
+
+  appointment.status = "cancelled";
+
+  await appointment.save();
+
+  res.status(200).json({
+    success: true,
+    message: "Appointment cancelled successfully",
+    appointment,
+  });
+});
