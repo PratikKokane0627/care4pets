@@ -181,3 +181,160 @@ export const bookAppointment = asyncHandler(async (req, res) => {
   });
 });
 
+export const getMyAppointments = asyncHandler(async (req, res) => {
+  const {
+    status,
+    date,
+    sort = "newest",
+    page = 1,
+    limit = 10,
+  } = req.query;
+
+  const pageNumber = Math.max(Number(page) || 1, 1);
+  const limitNumber = Math.min(Math.max(Number(limit) || 10, 1), 50);
+  const skip = (pageNumber - 1) * limitNumber;
+
+  const filter = {
+    ownerId: req.user._id,
+    isActive: true,
+  };
+
+  // Filter by appointment status
+  if (status) {
+    const allowedStatuses = [
+      "pending",
+      "accepted",
+      "rejected",
+      "cancelled",
+      "completed",
+    ];
+
+    if (!allowedStatuses.includes(status)) {
+      throw new ApiError(400, "Invalid appointment status");
+    }
+
+    filter.status = status;
+  }
+
+  // Filter by exact date
+  if (date) {
+    const selectedDate = new Date(date);
+
+    if (Number.isNaN(selectedDate.getTime())) {
+      throw new ApiError(400, "Invalid appointment date");
+    }
+
+    selectedDate.setHours(0, 0, 0, 0);
+
+    const nextDate = new Date(selectedDate);
+    nextDate.setDate(nextDate.getDate() + 1);
+
+    filter.appointmentDate = {
+      $gte: selectedDate,
+      $lt: nextDate,
+    };
+  }
+
+  const sortOptions = {
+    newest: {
+      appointmentDate: -1,
+      appointmentTime: -1,
+    },
+    oldest: {
+      appointmentDate: 1,
+      appointmentTime: 1,
+    },
+  };
+
+  const selectedSort = sortOptions[sort] || sortOptions.newest;
+
+  const [appointments, total] = await Promise.all([
+    Appointment.find(filter)
+      .populate(
+        "petId",
+        "petName species breed age gender profileImage"
+      )
+      .populate({
+        path: "vetId",
+        select:
+          "specialization experience clinicName clinicAddress consultationFee profileImage averageRating",
+        populate: {
+          path: "userId",
+          select: "name email phone profileImage",
+        },
+      })
+      .sort(selectedSort)
+      .skip(skip)
+      .limit(limitNumber),
+
+    Appointment.countDocuments(filter),
+  ]);
+
+  res.status(200).json({
+    success: true,
+    message: "Appointments fetched successfully",
+    count: appointments.length,
+    pagination: {
+      currentPage: pageNumber,
+      totalPages: Math.ceil(total / limitNumber),
+      totalAppointments: total,
+      limit: limitNumber,
+    },
+    appointments,
+  });
+});
+
+
+export const getAppointmentById = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    throw new ApiError(400, "Invalid appointment ID");
+  }
+
+  const appointment = await Appointment.findOne({
+    _id: id,
+    isActive: true,
+  })
+    .populate("ownerId", "name email phone profileImage address")
+    .populate(
+      "petId",
+      "petName species breed age gender weight profileImage medicalHistory vaccinationStatus"
+    )
+    .populate({
+      path: "vetId",
+      select:
+        "qualification specialization experience clinicName clinicAddress consultationFee profileImage availability averageRating totalReviews userId",
+      populate: {
+        path: "userId",
+        select: "name email phone role status profileImage address",
+      },
+    });
+
+  if (!appointment) {
+    throw new ApiError(404, "Appointment not found");
+  }
+
+  const isAdmin = req.user.role === "admin";
+
+  const isOwner =
+    req.user.role === "owner" &&
+    appointment.ownerId._id.toString() === req.user._id.toString();
+
+  const isAssignedVet =
+    req.user.role === "vet" &&
+    appointment.vetId?.userId?._id.toString() === req.user._id.toString();
+
+  if (!isAdmin && !isOwner && !isAssignedVet) {
+    throw new ApiError(
+      403,
+      "You are not authorized to view this appointment"
+    );
+  }
+
+  res.status(200).json({
+    success: true,
+    message: "Appointment fetched successfully",
+    appointment,
+  });
+});
