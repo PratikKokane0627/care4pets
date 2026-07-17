@@ -377,3 +377,183 @@ export const cancelAppointment = asyncHandler(async (req, res) => {
     appointment,
   });
 });
+
+
+export const getVetAppointments = asyncHandler(async (req, res) => {
+  const {
+    status,
+    date,
+    page = 1,
+    limit = 10,
+    sort = "newest",
+  } = req.query;
+
+  // Find Vet Profile
+  const vetProfile = await VetProfile.findOne({
+    userId: req.user._id,
+    isActive: true,
+  });
+
+  if (!vetProfile) {
+    throw new ApiError(404, "Veterinarian profile not found");
+  }
+
+  const filter = {
+    vetId: vetProfile._id,
+    isActive: true,
+  };
+
+  // Status Filter
+  if (status) {
+    filter.status = status;
+  }
+
+  // Date Filter
+  if (date) {
+    const selectedDate = new Date(date);
+
+    selectedDate.setHours(0, 0, 0, 0);
+
+    const nextDay = new Date(selectedDate);
+    nextDay.setDate(nextDay.getDate() + 1);
+
+    filter.appointmentDate = {
+      $gte: selectedDate,
+      $lt: nextDay,
+    };
+  }
+
+  const pageNumber = Number(page);
+  const limitNumber = Number(limit);
+
+  const skip = (pageNumber - 1) * limitNumber;
+
+  const sortOption =
+    sort === "oldest"
+      ? { appointmentDate: 1 }
+      : { appointmentDate: -1 };
+
+  const appointments = await Appointment.find(filter)
+    .populate("ownerId", "name email phone")
+    .populate(
+      "petId",
+      "petName species breed age gender profileImage"
+    )
+    .sort(sortOption)
+    .skip(skip)
+    .limit(limitNumber);
+
+  const total = await Appointment.countDocuments(filter);
+
+  res.status(200).json({
+    success: true,
+    message: "Appointments fetched successfully",
+    total,
+    page: pageNumber,
+    totalPages: Math.ceil(total / limitNumber),
+    appointments,
+  });
+});
+
+
+
+export const acceptAppointment = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    throw new ApiError(400, "Invalid appointment ID");
+  }
+
+  const vetProfile = await VetProfile.findOne({
+    userId: req.user._id,
+    isActive: true,
+  });
+
+  if (!vetProfile) {
+    throw new ApiError(404, "Veterinarian profile not found");
+  }
+
+  const appointment = await Appointment.findOne({
+    _id: id,
+    vetId: vetProfile._id,
+    isActive: true,
+  });
+
+  if (!appointment) {
+    throw new ApiError(
+      404,
+      "Appointment not found or not assigned to you"
+    );
+  }
+
+  if (appointment.status !== "pending") {
+    throw new ApiError(
+      400,
+      `Cannot accept a ${appointment.status} appointment`
+    );
+  }
+
+  appointment.status = "accepted";
+  await appointment.save();
+
+  const updatedAppointment = await Appointment.findById(appointment._id)
+    .populate("ownerId", "name email phone")
+    .populate("petId", "petName species breed age gender profileImage");
+
+  res.status(200).json({
+    success: true,
+    message: "Appointment accepted successfully",
+    appointment: updatedAppointment,
+  });
+});
+
+
+export const rejectAppointment = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { rejectionReason } = req.body || {};
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    throw new ApiError(400, "Invalid appointment ID");
+  }
+
+  const vetProfile = await VetProfile.findOne({
+    userId: req.user._id,
+    isActive: true,
+  });
+
+  if (!vetProfile) {
+    throw new ApiError(404, "Veterinarian profile not found");
+  }
+
+  const appointment = await Appointment.findOne({
+    _id: id,
+    vetId: vetProfile._id,
+    isActive: true,
+  });
+
+  if (!appointment) {
+    throw new ApiError(
+      404,
+      "Appointment not found or not assigned to you"
+    );
+  }
+
+  if (appointment.status !== "pending") {
+    throw new ApiError(
+      400,
+      `Cannot reject a ${appointment.status} appointment`
+    );
+  }
+
+  appointment.status = "rejected";
+  appointment.rejectionReason =
+    rejectionReason?.trim() || "Rejected by veterinarian";
+
+  await appointment.save();
+
+  res.status(200).json({
+    success: true,
+    message: "Appointment rejected successfully",
+    appointment,
+  });
+});

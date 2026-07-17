@@ -53,6 +53,11 @@ const appointmentSchema = new mongoose.Schema(
       ],
       default: "pending",
     },
+    rejectionReason: {
+      type: String,
+      trim: true,
+      maxlength: 500,
+    },
 
     diagnosis: {
       type: String,
