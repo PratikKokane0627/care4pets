@@ -557,3 +557,83 @@ export const rejectAppointment = asyncHandler(async (req, res) => {
     appointment,
   });
 });
+
+
+export const completeAppointment = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  const {
+    diagnosis,
+    prescription,
+    vetNotes,
+  } = req.body || {};
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    throw new ApiError(400, "Invalid appointment ID");
+  }
+
+  if (!diagnosis?.trim()) {
+    throw new ApiError(400, "Diagnosis is required");
+  }
+
+  const vetProfile = await VetProfile.findOne({
+    userId: req.user._id,
+    isActive: true,
+  });
+
+  if (!vetProfile) {
+    throw new ApiError(404, "Veterinarian profile not found");
+  }
+
+  const appointment = await Appointment.findOne({
+    _id: id,
+    vetId: vetProfile._id,
+    isActive: true,
+  });
+
+  if (!appointment) {
+    throw new ApiError(
+      404,
+      "Appointment not found or not assigned to you"
+    );
+  }
+
+  if (appointment.status !== "accepted") {
+    throw new ApiError(
+      400,
+      `Cannot complete a ${appointment.status} appointment`
+    );
+  }
+
+  appointment.status = "completed";
+  appointment.diagnosis = diagnosis.trim();
+  appointment.prescription = prescription?.trim() || "";
+  appointment.vetNotes = vetNotes?.trim() || "";
+  appointment.completedAt = new Date();
+
+  await appointment.save();
+
+  const completedAppointment = await Appointment.findById(
+    appointment._id
+  )
+    .populate("ownerId", "name email phone")
+    .populate(
+      "petId",
+      "petName species breed age gender profileImage"
+    )
+    .populate({
+      path: "vetId",
+      select:
+        "qualification specialization clinicName consultationFee profileImage userId",
+      populate: {
+        path: "userId",
+        select: "name email phone",
+      },
+    });
+
+  res.status(200).json({
+    success: true,
+    message: "Appointment completed successfully",
+    appointment: completedAppointment,
+  });
+});

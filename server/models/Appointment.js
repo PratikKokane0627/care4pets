@@ -61,18 +61,24 @@ const appointmentSchema = new mongoose.Schema(
 
     diagnosis: {
       type: String,
-      default: "",
+  trim: true,
+  maxlength: 1000,
     },
 
     prescription: {
-      type: String,
-      default: "",
+       type: String,
+  trim: true,
+  maxlength: 2000,
     },
 
-    notes: {
-      type: String,
-      default: "",
+    vetNotes: {
+       type: String,
+  trim: true,
+  maxlength: 2000,
     },
+    completedAt: {
+  type: Date,
+},
 
     consultationFee: {
       type: Number,
