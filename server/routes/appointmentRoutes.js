@@ -17,4 +17,5 @@ router.put("/:id/accept",protect,authorize("vet"),acceptAppointment);
 router.put("/:id/reject",protect,authorize("vet"),rejectAppointment);
 router.put("/:id/complete",protect,authorize("vet"),completeAppointment);
 
+
 export default router;

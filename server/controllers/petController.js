@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import cloudinary from "../config/cloudinary.js";
 import uploadToCloudinary from "../utils/uploadToCloudinary.js";
 import Pet from "../models/Pet.js";
+import Appointment from "../models/Appointment.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import ApiError from "../utils/ApiError.js";
 
@@ -215,4 +216,53 @@ export const uploadPetImage = asyncHandler(async (req, res) => {
     image: pet.profileImage,
     pet,
   });
+});
+
+
+
+
+
+export const getPetMedicalHistory = asyncHandler(async (req, res) => {
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+        throw new ApiError(400, "Invalid pet ID");
+    }
+
+    const pet = await Pet.findById(id);
+
+    if (!pet || !pet.isActive) {
+        throw new ApiError(404, "Pet not found");
+    }
+
+    // Owner can only access their own pet
+    if (
+        req.user.role === "owner" &&
+        pet.ownerId.toString() !== req.user._id.toString()
+    ) {
+        throw new ApiError(
+            403,
+            "You are not authorized to access this pet"
+        );
+    }
+
+    const history = await Appointment.find({
+        petId: id,
+        status: "completed",
+        isActive: true,
+    })
+        .populate({
+            path: "vetId",
+            populate: {
+                path: "userId",
+                select: "name email phone",
+            },
+        })
+        .sort({ completedAt: -1 });
+
+    res.status(200).json({
+        success: true,
+        count: history.length,
+        history,
+    });
 });
