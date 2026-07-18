@@ -333,3 +333,63 @@ await vaccination.save();
     message: "Vaccination record deleted successfully",
   });
 });
+
+
+export const getUpcomingVaccinations = asyncHandler(async (req, res) => {
+  const days = Math.min(
+    Math.max(Number(req.query.days) || 30, 1),
+    365
+  );
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const upcomingDate = new Date(today);
+  upcomingDate.setDate(upcomingDate.getDate() + days);
+  upcomingDate.setHours(23, 59, 59, 999);
+
+  const vaccinations = await Vaccination.find({
+    ownerId: req.user._id,
+    isActive: true,
+    nextDueDate: {
+      $gte: today,
+      $lte: upcomingDate,
+    },
+  })
+    .populate(
+      "petId",
+      "petName species breed profileImage"
+    )
+    .populate({
+      path: "veterinarian",
+      select: "clinicName specialization userId",
+      populate: {
+        path: "userId",
+        select: "name email phone",
+      },
+    })
+    .sort({ nextDueDate: 1 });
+
+  const upcomingVaccinations = vaccinations.map((vaccination) => {
+    const millisecondsPerDay = 1000 * 60 * 60 * 24;
+
+    const daysRemaining = Math.ceil(
+      (new Date(vaccination.nextDueDate) - today) /
+        millisecondsPerDay
+    );
+
+    return {
+      ...vaccination.toObject(),
+      calculatedStatus: "upcoming",
+      daysRemaining,
+    };
+  });
+
+  res.status(200).json({
+    success: true,
+    message: "Upcoming vaccinations fetched successfully",
+    rangeInDays: days,
+    count: upcomingVaccinations.length,
+    vaccinations: upcomingVaccinations,
+  });
+});
