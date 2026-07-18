@@ -393,3 +393,50 @@ export const getUpcomingVaccinations = asyncHandler(async (req, res) => {
     vaccinations: upcomingVaccinations,
   });
 });
+
+
+export const getOverdueVaccinations = asyncHandler(async (req, res) => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const vaccinations = await Vaccination.find({
+    ownerId: req.user._id,
+    isActive: true,
+    nextDueDate: {
+      $lt: today,
+    },
+  })
+    .populate(
+      "petId",
+      "petName species breed profileImage"
+    )
+    .populate({
+      path: "veterinarian",
+      select: "clinicName specialization userId",
+      populate: {
+        path: "userId",
+        select: "name email phone",
+      },
+    })
+    .sort({ nextDueDate: 1 });
+
+  const overdueVaccinations = vaccinations.map((vaccination) => {
+    const overdueDays = Math.ceil(
+      (today - new Date(vaccination.nextDueDate)) /
+      (1000 * 60 * 60 * 24)
+    );
+
+    return {
+      ...vaccination.toObject(),
+      calculatedStatus: "overdue",
+      overdueDays,
+    };
+  });
+
+  res.status(200).json({
+    success: true,
+    message: "Overdue vaccinations fetched successfully",
+    count: overdueVaccinations.length,
+    vaccinations: overdueVaccinations,
+  });
+});

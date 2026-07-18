@@ -1,5 +1,5 @@
 import express from "express";
-import { createVaccination,getMyVaccinations,getVaccinationById, updateVaccination, deleteVaccination,getUpcomingVaccinations, } from "../controllers/vaccinationController.js";
+import { createVaccination,getMyVaccinations,getVaccinationById, updateVaccination, deleteVaccination,getUpcomingVaccinations,getOverdueVaccinations, } from "../controllers/vaccinationController.js";
 import { protect } from "../middleware/authMiddleware.js";
 import { authorize } from "../middleware/roleMiddleware.js";
 
@@ -8,6 +8,7 @@ const router = express.Router();
 router.post("/",protect,authorize("owner"),createVaccination);
 router.get('/',protect,authorize("owner"),getMyVaccinations);
 router.get("/upcoming",protect,authorize("owner"),getUpcomingVaccinations);
+router.get("/overdue",protect,authorize("owner"),getOverdueVaccinations);
 
 router.get("/:id",protect,authorize("owner"),getVaccinationById);
 router.put("/:id",protect,authorize("owner"),updateVaccination);
