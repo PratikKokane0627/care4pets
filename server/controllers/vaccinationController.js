@@ -300,3 +300,36 @@ export const updateVaccination = asyncHandler(async (req, res) => {
     vaccination: updatedVaccination,
   });
 });
+
+
+export const deleteVaccination = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    throw new ApiError(400, "Invalid vaccination ID");
+  }
+
+  const vaccination = await Vaccination.findOne({
+    _id: id,
+    ownerId: req.user._id,
+    isActive: true,
+  });
+
+  if (!vaccination) {
+    throw new ApiError(
+      404,
+      "Vaccination record not found or does not belong to you"
+    );
+  }
+
+  
+  vaccination.isActive = false;
+vaccination.deletedAt = new Date();
+
+await vaccination.save();
+
+  res.status(200).json({
+    success: true,
+    message: "Vaccination record deleted successfully",
+  });
+});

@@ -60,6 +60,10 @@ const vaccinationSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    deletedAt: {
+  type: Date,
+  default: null,
+},
   },
   {
     timestamps: true,
