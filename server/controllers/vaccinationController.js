@@ -159,3 +159,43 @@ export const getMyVaccinations = asyncHandler(async (req, res) => {
     vaccinations,
   });
 });
+
+export const getVaccinationById = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    throw new ApiError(400, "Invalid vaccination ID");
+  }
+
+  const vaccination = await Vaccination.findOne({
+    _id: id,
+    ownerId: req.user._id,
+    isActive: true,
+  })
+    .populate(
+      "petId",
+      "petName species breed age gender profileImage vaccinationStatus"
+    )
+    .populate({
+      path: "veterinarian",
+      select:
+        "qualification specialization clinicName clinicAddress profileImage userId",
+      populate: {
+        path: "userId",
+        select: "name email phone",
+      },
+    });
+
+  if (!vaccination) {
+    throw new ApiError(
+      404,
+      "Vaccination record not found or does not belong to you"
+    );
+  }
+
+  res.status(200).json({
+    success: true,
+    message: "Vaccination record fetched successfully",
+    vaccination,
+  });
+});
