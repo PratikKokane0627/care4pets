@@ -1,17 +1,19 @@
 import express from "express";
 
 import {
-  createGroomingService, getAllGroomingServices,  getGroomingServiceById,updateGroomingService,} from "../controllers/groomingServiceController.js";
+    createGroomingService, getAllGroomingServices, getGroomingServiceById, updateGroomingService, deleteGroomingService,
+} from "../controllers/groomingServiceController.js";
 
 import { protect } from "../middleware/authMiddleware.js";
 import { authorize } from "../middleware/roleMiddleware.js";
 
 const router = express.Router();
 
-router.get("/",getAllGroomingServices);
-router.post("/",protect,authorize("admin"),createGroomingService);
+router.get("/", getAllGroomingServices);
+router.post("/", protect, authorize("admin"), createGroomingService);
 
-router.get("/:id",getGroomingServiceById);
- router.put('/:id',protect,authorize("admin"),updateGroomingService);
+router.get("/:id", getGroomingServiceById);
+router.put('/:id', protect, authorize("admin"), updateGroomingService);
+router.delete('/:id', protect, authorize("admin"), deleteGroomingService);
 
 export default router;
