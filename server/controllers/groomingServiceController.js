@@ -201,3 +201,93 @@ export const getGroomingServiceById = asyncHandler(async (req, res) => {
   });
 });
 
+export const updateGroomingService = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  const {
+    serviceName,
+    description,
+    duration,
+    price,
+    category,
+  } = req.body || {};
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    throw new ApiError(400, "Invalid grooming service ID");
+  }
+
+  const service = await GroomingService.findOne({
+    _id: id,
+    isActive: true,
+  });
+
+  if (!service) {
+    throw new ApiError(404, "Grooming service not found");
+  }
+
+  if (serviceName !== undefined) {
+    const trimmedName = serviceName.trim();
+
+    if (!trimmedName) {
+      throw new ApiError(400, "Service name cannot be empty");
+    }
+
+    const existingService = await GroomingService.findOne({
+      _id: { $ne: id },
+      serviceName: trimmedName,
+      isActive: true,
+    });
+
+    if (existingService) {
+      throw new ApiError(
+        409,
+        "A grooming service with this name already exists"
+      );
+    }
+
+    service.serviceName = trimmedName;
+  }
+
+  if (description !== undefined) {
+    service.description = description.trim();
+  }
+
+  if (duration !== undefined) {
+    const parsedDuration = Number(duration);
+
+    if (!Number.isFinite(parsedDuration) || parsedDuration <= 0) {
+      throw new ApiError(
+        400,
+        "Duration must be greater than 0"
+      );
+    }
+
+    service.duration = parsedDuration;
+  }
+
+  if (price !== undefined) {
+    const parsedPrice = Number(price);
+
+    if (!Number.isFinite(parsedPrice) || parsedPrice < 0) {
+      throw new ApiError(
+        400,
+        "Price must be greater than or equal to 0"
+      );
+    }
+
+    service.price = parsedPrice;
+  }
+
+  if (category !== undefined) {
+    service.category = category;
+  }
+
+  await service.save();
+
+  res.status(200).json({
+    success: true,
+    message: "Grooming service updated successfully",
+    service,
+  });
+});
+
