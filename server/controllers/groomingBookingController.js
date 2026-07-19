@@ -647,3 +647,141 @@ export const updateGroomerNotes = asyncHandler(async (req, res) => {
     booking: updatedBooking,
   });
 });
+export const getGroomerDashboardStats = asyncHandler(async (req, res) => {
+  const groomerId = req.user._id;
+
+  // Use this explicitly inside the aggregation pipeline
+  const groomerObjectId = new mongoose.Types.ObjectId(
+    req.user._id.toString()
+  );
+
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+
+  const todayEnd = new Date(todayStart);
+  todayEnd.setDate(todayEnd.getDate() + 1);
+
+  const monthStart = new Date(
+    todayStart.getFullYear(),
+    todayStart.getMonth(),
+    1
+  );
+
+  const nextMonthStart = new Date(
+    todayStart.getFullYear(),
+    todayStart.getMonth() + 1,
+    1
+  );
+
+  const baseQuery = {
+    groomerId,
+    isActive: true,
+  };
+
+  const [
+    totalBookings,
+    acceptedBookings,
+    rejectedBookings,
+    cancelledBookings,
+    completedBookings,
+    todayBookings,
+    monthlyBookings,
+    monthlyRevenueResult,
+    recentBookings,
+  ] = await Promise.all([
+    GroomingBooking.countDocuments(baseQuery),
+
+    GroomingBooking.countDocuments({
+      ...baseQuery,
+      status: "accepted",
+    }),
+
+    GroomingBooking.countDocuments({
+      ...baseQuery,
+      status: "rejected",
+    }),
+
+    GroomingBooking.countDocuments({
+      ...baseQuery,
+      status: "cancelled",
+    }),
+
+    GroomingBooking.countDocuments({
+      ...baseQuery,
+      status: "completed",
+    }),
+
+    GroomingBooking.countDocuments({
+      ...baseQuery,
+      bookingDate: {
+        $gte: todayStart,
+        $lt: todayEnd,
+      },
+    }),
+
+    GroomingBooking.countDocuments({
+      ...baseQuery,
+      bookingDate: {
+        $gte: monthStart,
+        $lt: nextMonthStart,
+      },
+    }),
+
+    GroomingBooking.aggregate([
+      {
+        $match: {
+          groomerId: groomerObjectId,
+          isActive: true,
+          status: "completed",
+          completedAt: {
+            $gte: monthStart,
+            $lt: nextMonthStart,
+          },
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          totalRevenue: {
+            $sum: "$price",
+          },
+        },
+      },
+    ]),
+
+    GroomingBooking.find(baseQuery)
+      .populate("ownerId", "name email phone")
+      .populate(
+        "petId",
+        "petName species breed profileImage"
+      )
+      .populate(
+        "serviceId",
+        "serviceName category duration price"
+      )
+      .sort({
+        bookingDate: -1,
+        bookingTime: -1,
+      })
+      .limit(5),
+  ]);
+
+  const monthlyRevenue =
+    monthlyRevenueResult[0]?.totalRevenue || 0;
+
+  res.status(200).json({
+    success: true,
+    message: "Groomer dashboard statistics fetched successfully",
+    stats: {
+      totalBookings,
+      acceptedBookings,
+      rejectedBookings,
+      cancelledBookings,
+      completedBookings,
+      todayBookings,
+      monthlyBookings,
+      monthlyRevenue,
+    },
+    recentBookings,
+  });
+});
