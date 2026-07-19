@@ -138,3 +138,90 @@ export const createGroomingBooking = asyncHandler(
     });
   }
 );
+
+export const getMyGroomingBookings = asyncHandler(async (req, res) => {
+  const {
+    status,
+    bookingDate,
+    search,
+    page = 1,
+    limit = 10,
+    sort = "newest",
+  } = req.query;
+
+  const query = {
+    ownerId: req.user._id,
+    isActive: true,
+  };
+
+  if (status) {
+    query.status = status;
+  }
+
+  if (bookingDate) {
+    const date = new Date(bookingDate);
+
+    if (Number.isNaN(date.getTime())) {
+      throw new ApiError(400, "Invalid booking date");
+    }
+
+    const nextDay = new Date(date);
+    nextDay.setDate(nextDay.getDate() + 1);
+
+    query.bookingDate = {
+      $gte: date,
+      $lt: nextDay,
+    };
+  }
+
+  const pageNumber = Math.max(Number(page), 1);
+  const limitNumber = Math.min(Math.max(Number(limit), 1), 50);
+
+  const skip = (pageNumber - 1) * limitNumber;
+
+  const sortOptions = {
+    newest: { bookingDate: -1, createdAt: -1 },
+    oldest: { bookingDate: 1, createdAt: 1 },
+  };
+
+  const selectedSort = sortOptions[sort] || sortOptions.newest;
+
+  let bookings = await GroomingBooking.find(query)
+    .populate(
+      "petId",
+      "petName species breed profileImage"
+    )
+    .populate(
+      "serviceId",
+      "serviceName category price duration"
+    )
+    .populate(
+      "groomerId",
+      "name email phone"
+    )
+    .sort(selectedSort)
+    .skip(skip)
+    .limit(limitNumber);
+
+  if (search) {
+    const keyword = search.toLowerCase();
+
+    bookings = bookings.filter((booking) =>
+      booking.serviceId?.serviceName
+        ?.toLowerCase()
+        .includes(keyword)
+    );
+  }
+
+  const totalBookings = await GroomingBooking.countDocuments(query);
+
+  res.status(200).json({
+    success: true,
+    message: "My grooming bookings fetched successfully",
+    count: bookings.length,
+    totalBookings,
+    currentPage: pageNumber,
+    totalPages: Math.ceil(totalBookings / limitNumber),
+    bookings,
+  });
+});
