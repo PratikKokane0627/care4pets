@@ -101,6 +101,16 @@ const groomingBookingSchema = new mongoose.Schema(
       default: true,
       index: true,
     },
+    cancellationReason: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+
+    cancelledAt: {
+      type: Date,
+      default: null,
+    },
   },
   {
     timestamps: true,

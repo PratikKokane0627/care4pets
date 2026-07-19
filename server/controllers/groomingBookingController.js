@@ -785,3 +785,73 @@ export const getGroomerDashboardStats = asyncHandler(async (req, res) => {
     recentBookings,
   });
 });
+
+export const cancelGroomingBooking = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { cancellationReason } = req.body || {};
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    throw new ApiError(400, "Invalid booking ID");
+  }
+
+  const booking = await GroomingBooking.findOne({
+    _id: id,
+    ownerId: req.user._id,
+    isActive: true,
+  });
+
+  if (!booking) {
+    throw new ApiError(
+      404,
+      "Grooming booking not found or you are not authorized"
+    );
+  }
+
+  if (!["pending", "accepted"].includes(booking.status)) {
+    throw new ApiError(
+      400,
+      `Cannot cancel a ${booking.status} booking`
+    );
+  }
+
+  const bookingDateTime = new Date(booking.bookingDate);
+
+  if (booking.bookingTime) {
+    const [hours, minutes] = booking.bookingTime.split(":").map(Number);
+
+    bookingDateTime.setHours(hours, minutes, 0, 0);
+  }
+
+  if (bookingDateTime < new Date()) {
+    throw new ApiError(
+      400,
+      "Past grooming bookings cannot be cancelled"
+    );
+  }
+
+  booking.status = "cancelled";
+  booking.cancellationReason =
+    cancellationReason?.trim() || "Cancelled by owner";
+  booking.cancelledAt = new Date();
+
+  await booking.save();
+
+  const updatedBooking = await GroomingBooking.findById(booking._id)
+    .populate("ownerId", "name email phone")
+    .populate(
+      "petId",
+      "petName species breed age gender profileImage"
+    )
+    .populate(
+      "serviceId",
+      "serviceName category duration price image"
+    )
+    .populate("groomerId", "name email phone");
+
+  res.status(200).json({
+    success: true,
+    message: "Grooming booking cancelled successfully",
+    booking: updatedBooking,
+  });
+});
+
