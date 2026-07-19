@@ -581,3 +581,69 @@ export const completeGroomingBooking = asyncHandler(async (req, res) => {
     booking: updatedBooking,
   });
 });
+
+
+export const updateGroomerNotes = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { groomerNotes } = req.body || {};
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    throw new ApiError(400, "Invalid booking ID");
+  }
+
+  if (typeof groomerNotes !== "string" || !groomerNotes.trim()) {
+    throw new ApiError(400, "Groomer notes are required");
+  }
+
+  const booking = await GroomingBooking.findOne({
+    _id: id,
+    isActive: true,
+  });
+
+  if (!booking) {
+    throw new ApiError(404, "Grooming booking not found");
+  }
+
+  if (!booking.groomerId) {
+    throw new ApiError(
+      400,
+      "This booking has not been assigned to a groomer"
+    );
+  }
+
+  if (booking.groomerId.toString() !== req.user._id.toString()) {
+    throw new ApiError(
+      403,
+      "You are not authorized to update notes for this booking"
+    );
+  }
+
+  if (!["accepted", "completed"].includes(booking.status)) {
+    throw new ApiError(
+      400,
+      `Cannot add notes to a ${booking.status} booking`
+    );
+  }
+
+  booking.groomerNotes = groomerNotes.trim();
+
+  await booking.save();
+
+  const updatedBooking = await GroomingBooking.findById(booking._id)
+    .populate("ownerId", "name email phone")
+    .populate(
+      "petId",
+      "petName species breed age gender profileImage"
+    )
+    .populate(
+      "serviceId",
+      "serviceName category duration price image"
+    )
+    .populate("groomerId", "name email phone");
+
+  res.status(200).json({
+    success: true,
+    message: "Groomer notes updated successfully",
+    booking: updatedBooking,
+  });
+});
