@@ -1,7 +1,7 @@
 import express from "express";
 
 import {
-  createGroomingBooking,  getMyGroomingBookings,getAvailableGroomingBookings, getGroomerBookings,
+  createGroomingBooking,  getMyGroomingBookings,getAvailableGroomingBookings, getGroomerBookings, acceptGroomingBooking,
 } from "../controllers/groomingBookingController.js";
 
 import { protect } from "../middleware/authMiddleware.js";
@@ -13,5 +13,7 @@ router.post("/",protect,authorize("owner"),createGroomingBooking);
  router.get('/', protect,authorize("owner"),getMyGroomingBookings);
 router.get("/available",protect,authorize("groomer"),getAvailableGroomingBookings);
 router.get("/groomer",protect,authorize("groomer"),getGroomerBookings);
+
+router.put("/:id/accept",protect,authorize("groomer"),acceptGroomingBooking);
 
 export default router;
