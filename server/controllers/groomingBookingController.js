@@ -460,3 +460,61 @@ export const acceptGroomingBooking = asyncHandler(async (req, res) => {
   });
 });
 
+export const rejectGroomingBooking = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { rejectionReason } = req.body || {};
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    throw new ApiError(400, "Invalid booking ID");
+  }
+
+  const booking = await GroomingBooking.findOne({
+    _id: id,
+    isActive: true,
+  });
+
+  if (!booking) {
+    throw new ApiError(404, "Grooming booking not found");
+  }
+
+  if (booking.status !== "pending") {
+    throw new ApiError(
+      400,
+      `Cannot reject a ${booking.status} booking`
+    );
+  }
+
+  if (booking.groomerId) {
+    throw new ApiError(
+      400,
+      "This booking has already been assigned to a groomer"
+    );
+  }
+
+  booking.groomerId = req.user._id;
+  booking.status = "rejected";
+  booking.rejectionReason =
+    rejectionReason?.trim() || "Rejected by groomer";
+
+  await booking.save();
+
+  const updatedBooking = await GroomingBooking.findById(
+    booking._id
+  )
+    .populate("ownerId", "name email phone")
+    .populate(
+      "petId",
+      "petName species breed age gender profileImage"
+    )
+    .populate(
+      "serviceId",
+      "serviceName category duration price"
+    )
+    .populate("groomerId", "name email phone");
+
+  res.status(200).json({
+    success: true,
+    message: "Grooming booking rejected successfully",
+    booking: updatedBooking,
+  });
+});
