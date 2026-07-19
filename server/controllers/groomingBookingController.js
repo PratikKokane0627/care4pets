@@ -904,3 +904,131 @@ export const getGroomingBookingById = asyncHandler(async (req, res) => {
     booking,
   });
 });
+
+
+export const getAllGroomingBookings = asyncHandler(async (req, res) => {
+  const {
+    page = 1,
+    limit = 10,
+    status,
+    paymentStatus,
+    search,
+    bookingDate,
+    sortBy = "createdAt",
+    order = "desc",
+  } = req.query;
+
+  const pageNumber = Math.max(Number(page) || 1, 1);
+  const limitNumber = Math.min(Math.max(Number(limit) || 10, 1), 100);
+
+  const query = {
+    isActive: true,
+  };
+
+  if (status) {
+    query.status = status;
+  }
+
+  if (paymentStatus) {
+    query.paymentStatus = paymentStatus;
+  }
+
+  if (bookingDate) {
+    const startDate = new Date(bookingDate);
+    startDate.setHours(0, 0, 0, 0);
+
+    const endDate = new Date(startDate);
+    endDate.setDate(endDate.getDate() + 1);
+
+    query.bookingDate = {
+      $gte: startDate,
+      $lt: endDate,
+    };
+  }
+
+  const sortOrder = order === "asc" ? 1 : -1;
+
+  let bookingsQuery = GroomingBooking.find(query)
+    .populate("ownerId", "name email phone")
+    .populate(
+      "petId",
+      "petName species breed age gender profileImage"
+    )
+    .populate(
+      "serviceId",
+      "serviceName category duration price image"
+    )
+    .populate("groomerId", "name email phone role")
+    .sort({
+      [sortBy]: sortOrder,
+    });
+
+  if (search?.trim()) {
+    const searchText = search.trim();
+
+    bookingsQuery = bookingsQuery
+      .populate({
+        path: "ownerId",
+        match: {
+          $or: [
+            { name: { $regex: searchText, $options: "i" } },
+            { email: { $regex: searchText, $options: "i" } },
+          ],
+        },
+        select: "name email phone",
+      })
+      .populate({
+        path: "petId",
+        match: {
+          petName: {
+            $regex: searchText,
+            $options: "i",
+          },
+        },
+        select: "petName species breed profileImage",
+      })
+      .populate({
+        path: "serviceId",
+        match: {
+          serviceName: {
+            $regex: searchText,
+            $options: "i",
+          },
+        },
+        select: "serviceName category duration price image",
+      });
+  }
+
+  const bookings = await bookingsQuery;
+
+  let filteredBookings = bookings;
+
+  if (search?.trim()) {
+    filteredBookings = bookings.filter(
+      (booking) =>
+        booking.ownerId ||
+        booking.petId ||
+        booking.serviceId ||
+        booking.groomerId
+    );
+  }
+
+  const totalBookings = filteredBookings.length;
+
+  const paginatedBookings = filteredBookings.slice(
+    (pageNumber - 1) * limitNumber,
+    pageNumber * limitNumber
+  );
+
+  res.status(200).json({
+    success: true,
+    message: "All grooming bookings fetched successfully",
+    pagination: {
+      currentPage: pageNumber,
+      totalPages: Math.ceil(totalBookings / limitNumber),
+      totalBookings,
+      limit: limitNumber,
+    },
+    bookings: paginatedBookings,
+  });
+});
