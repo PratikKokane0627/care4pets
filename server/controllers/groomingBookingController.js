@@ -855,3 +855,52 @@ export const cancelGroomingBooking = asyncHandler(async (req, res) => {
   });
 });
 
+export const getGroomingBookingById = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    throw new ApiError(400, "Invalid grooming booking ID");
+  }
+
+  const booking = await GroomingBooking.findOne({
+    _id: id,
+    isActive: true,
+  })
+    .populate("ownerId", "name email phone")
+    .populate(
+      "petId",
+      "petName species breed age gender weight profileImage"
+    )
+    .populate(
+      "serviceId",
+      "serviceName description category duration price image"
+    )
+    .populate("groomerId", "name email phone");
+
+  if (!booking) {
+    throw new ApiError(404, "Grooming booking not found");
+  }
+
+  const loggedInUserId = req.user._id.toString();
+
+  const isOwner =
+    booking.ownerId?._id.toString() === loggedInUserId;
+
+  const isAssignedGroomer =
+    booking.groomerId?._id.toString() === loggedInUserId;
+
+  const isAdmin = req.user.role === "admin";
+
+  if (!isOwner && !isAssignedGroomer && !isAdmin) {
+    throw new ApiError(
+      403,
+      "You are not authorized to view this grooming booking"
+    );
+  }
+
+  res.status(200).json({
+    success: true,
+    message: "Grooming booking fetched successfully",
+    booking,
+  });
+});
