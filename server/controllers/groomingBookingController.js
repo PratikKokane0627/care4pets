@@ -225,3 +225,103 @@ export const getMyGroomingBookings = asyncHandler(async (req, res) => {
     bookings,
   });
 });
+
+export const getAvailableGroomingBookings = asyncHandler(
+  async (req, res) => {
+    const {
+      bookingDate,
+      serviceId,
+      page = 1,
+      limit = 10,
+      sort = "oldest",
+    } = req.query;
+
+    const query = {
+      groomerId: null,
+      status: "pending",
+      isActive: true,
+    };
+
+    if (bookingDate) {
+      const selectedDate = new Date(bookingDate);
+
+      if (Number.isNaN(selectedDate.getTime())) {
+        throw new ApiError(400, "Invalid booking date");
+      }
+
+      selectedDate.setHours(0, 0, 0, 0);
+
+      const nextDay = new Date(selectedDate);
+      nextDay.setDate(nextDay.getDate() + 1);
+
+      query.bookingDate = {
+        $gte: selectedDate,
+        $lt: nextDay,
+      };
+    }
+
+    if (serviceId) {
+      if (!mongoose.Types.ObjectId.isValid(serviceId)) {
+        throw new ApiError(400, "Invalid grooming service ID");
+      }
+
+      query.serviceId = serviceId;
+    }
+
+    const pageNumber = Math.max(Number(page) || 1, 1);
+
+    const limitNumber = Math.min(
+      Math.max(Number(limit) || 10, 1),
+      50
+    );
+
+    const skip = (pageNumber - 1) * limitNumber;
+
+    const sortOptions = {
+      oldest: {
+        bookingDate: 1,
+        bookingTime: 1,
+        createdAt: 1,
+      },
+      newest: {
+        bookingDate: -1,
+        bookingTime: -1,
+        createdAt: -1,
+      },
+    };
+
+    const selectedSort =
+      sortOptions[sort] || sortOptions.oldest;
+
+    const [bookings, totalBookings] = await Promise.all([
+      GroomingBooking.find(query)
+        .populate(
+          "ownerId",
+          "name email phone"
+        )
+        .populate(
+          "petId",
+          "petName species breed gender age profileImage"
+        )
+        .populate(
+          "serviceId",
+          "serviceName description category duration price image"
+        )
+        .sort(selectedSort)
+        .skip(skip)
+        .limit(limitNumber),
+
+      GroomingBooking.countDocuments(query),
+    ]);
+
+    res.status(200).json({
+      success: true,
+      message: "Available grooming bookings fetched successfully",
+      count: bookings.length,
+      totalBookings,
+      currentPage: pageNumber,
+      totalPages: Math.ceil(totalBookings / limitNumber),
+      bookings,
+    });
+  }
+);
