@@ -1,4 +1,4 @@
-
+import mongoose from "mongoose";
 import GroomingService from "../models/GroomingService.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import ApiError from "../utils/ApiError.js";
@@ -175,6 +175,29 @@ export const getAllGroomingServices = asyncHandler(async (req, res) => {
     currentPage: pageNumber,
     totalPages,
     services,
+  });
+});
+
+export const getGroomingServiceById = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    throw new ApiError(400, "Invalid grooming service ID");
+  }
+
+  const service = await GroomingService.findOne({
+    _id: id,
+    isActive: true,
+  });
+
+  if (!service) {
+    throw new ApiError(404, "Grooming service not found");
+  }
+
+  res.status(200).json({
+    success: true,
+    message: "Grooming service fetched successfully",
+    service,
   });
 });
 
