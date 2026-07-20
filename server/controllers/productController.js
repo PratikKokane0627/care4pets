@@ -630,3 +630,46 @@ export const deleteProductImage = asyncHandler(async (req, res) => {
     images: product.images,
   });
 });
+
+export const updateProductStock = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { stock } = req.body || {};
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    throw new ApiError(400, "Invalid product ID");
+  }
+
+  if (stock === undefined) {
+    throw new ApiError(400, "Stock is required");
+  }
+
+  if (!Number.isInteger(stock) || stock < 0) {
+    throw new ApiError(
+      400,
+      "Stock must be a non-negative integer"
+    );
+  }
+
+  const product = await Product.findOne({
+    _id: id,
+    isActive: true,
+  });
+
+  if (!product) {
+    throw new ApiError(404, "Product not found");
+  }
+
+  product.stock = stock;
+
+  await product.save();
+
+  res.status(200).json({
+    success: true,
+    message: "Product stock updated successfully",
+    product: {
+      _id: product._id,
+      productName: product.productName,
+      stock: product.stock,
+    },
+  });
+});
