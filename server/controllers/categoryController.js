@@ -109,3 +109,27 @@ export const getAllCategories = asyncHandler(async (req, res) => {
     categories,
   });
 });
+
+
+export const getCategoryById = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    throw new ApiError(400, "Invalid category ID");
+  }
+
+  const category = await Category.findOne({
+    _id: id,
+    isActive: true,
+  });
+
+  if (!category) {
+    throw new ApiError(404, "Category not found");
+  }
+
+  res.status(200).json({
+    success: true,
+    message: "Category fetched successfully",
+    category,
+  });
+});
