@@ -5,7 +5,7 @@ import { authorize } from "../middleware/roleMiddleware.js";
 import upload from "../middleware/uploadMiddleware.js";
 
 import {
-  createProduct, getAllProducts,getProductById, updateProduct, deleteProduct,uploadProductImages,
+  createProduct, getAllProducts,getProductById, updateProduct, deleteProduct,uploadProductImages,deleteProductImage,
 } from "../controllers/productController.js";
 
 
@@ -15,6 +15,7 @@ router.get("/",getAllProducts);
 router.post("/",protect,authorize("admin"),createProduct);
 
 router.post("/:id/images", protect,authorize("admin"),upload.array("images", 5),uploadProductImages);
+router.delete("/:id/images",protect,authorize("admin"),deleteProductImage);
 
 router.get("/:id", getProductById);
 router.put("/:id",protect,authorize("admin"),updateProduct);

@@ -4,6 +4,7 @@ import asyncHandler from "../utils/asyncHandler.js";
 import ApiError from "../utils/ApiError.js";
 import cloudinary from "../config/cloudinary.js";
 import uploadToCloudinary from "../utils/uploadToCloudinary.js";
+import deleteFromCloudinary from "../utils/deleteFromCloudinary.js";
 import Category from "../models/Category.js";
 
 export const createProduct = asyncHandler(async (req, res) => {
@@ -573,3 +574,59 @@ export const uploadProductImages = asyncHandler(
     });
   }
 );
+
+export const deleteProductImage = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { publicId } = req.body || {};
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    throw new ApiError(400, "Invalid product ID");
+  }
+
+  if (!publicId?.trim()) {
+    throw new ApiError(400, "Image publicId is required");
+  }
+
+  const product = await Product.findOne({
+    _id: id,
+    isActive: true,
+  });
+
+  if (!product) {
+    throw new ApiError(404, "Product not found");
+  }
+
+  const imageExists = product.images.some(
+    (image) => image.publicId === publicId.trim()
+  );
+
+  if (!imageExists) {
+    throw new ApiError(404, "Product image not found");
+  }
+
+  const cloudinaryResult = await deleteFromCloudinary(
+    publicId.trim()
+  );
+
+  if (
+    cloudinaryResult?.result &&
+    !["ok", "not found"].includes(cloudinaryResult.result)
+  ) {
+    throw new ApiError(
+      500,
+      "Failed to delete image from Cloudinary"
+    );
+  }
+
+  product.images = product.images.filter(
+    (image) => image.publicId !== publicId.trim()
+  );
+
+  await product.save();
+
+  res.status(200).json({
+    success: true,
+    message: "Product image deleted successfully",
+    images: product.images,
+  });
+});
