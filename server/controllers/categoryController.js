@@ -33,3 +33,79 @@ export const createCategory = asyncHandler(async (req, res) => {
     category,
   });
 });
+
+export const getAllCategories = asyncHandler(async (req, res) => {
+  const {
+    search,
+    page = 1,
+    limit = 10,
+    sortBy = "createdAt",
+    order = "desc",
+  } = req.query;
+
+  const pageNumber = Math.max(Number(page) || 1, 1);
+  const limitNumber = Math.min(
+    Math.max(Number(limit) || 10, 1),
+    100
+  );
+
+  const query = {
+    isActive: true,
+  };
+
+  if (search?.trim()) {
+    const searchText = search.trim();
+
+    query.$or = [
+      {
+        categoryName: {
+          $regex: searchText,
+          $options: "i",
+        },
+      },
+      {
+        description: {
+          $regex: searchText,
+          $options: "i",
+        },
+      },
+    ];
+  }
+
+  const allowedSortFields = [
+    "categoryName",
+    "createdAt",
+    "updatedAt",
+  ];
+
+  const selectedSortField = allowedSortFields.includes(sortBy)
+    ? sortBy
+    : "createdAt";
+
+  const sortOrder = order === "asc" ? 1 : -1;
+
+  const skip = (pageNumber - 1) * limitNumber;
+
+  const [categories, totalCategories] = await Promise.all([
+    Category.find(query)
+      .sort({
+        [selectedSortField]: sortOrder,
+      })
+      .skip(skip)
+      .limit(limitNumber),
+
+    Category.countDocuments(query),
+  ]);
+
+  res.status(200).json({
+    success: true,
+    message: "Categories fetched successfully",
+    pagination: {
+      currentPage: pageNumber,
+      totalPages: Math.ceil(totalCategories / limitNumber),
+      totalCategories,
+      limit: limitNumber,
+    },
+    categories,
+  });
+});
