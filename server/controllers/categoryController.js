@@ -2,6 +2,8 @@ import mongoose from "mongoose";
 import Category from "../models/Category.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import ApiError from "../utils/ApiError.js";
+import cloudinary from "../config/cloudinary.js";
+import uploadToCloudinary from "../utils/uploadToCloudinary.js";
 
 export const createCategory = asyncHandler(async (req, res) => {
   const { categoryName, description } = req.body || {};
@@ -212,3 +214,48 @@ export const deleteCategory = asyncHandler(async (req, res) => {
   });
 });
 
+
+export const uploadCategoryImage = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    throw new ApiError(400, "Invalid category ID");
+  }
+
+  const category = await Category.findOne({
+    _id: id,
+    isActive: true,
+  });
+
+  if (!category) {
+    throw new ApiError(404, "Category not found");
+  }
+
+  if (!req.file) {
+    throw new ApiError(400, "Image is required");
+  }
+
+  // Upload image to Cloudinary
+  const uploadedImage = await uploadToCloudinary(
+    req.file.buffer,
+    "care4pets/categories"
+  );
+
+  // Delete old image if it exists
+  if (category.image?.publicId) {
+    await deleteImageFromCloudinary(category.image.publicId);
+  }
+
+  category.image = {
+    url: uploadedImage.secure_url,
+    publicId: uploadedImage.public_id,
+  };
+
+  await category.save();
+
+  res.status(200).json({
+    success: true,
+    message: "Category image uploaded successfully",
+    image: category.image,
+  });
+});
