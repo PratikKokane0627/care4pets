@@ -4,7 +4,7 @@ import { protect } from "../middleware/authMiddleware.js";
 import { authorize } from "../middleware/roleMiddleware.js";
 
 import {
-  createCategory,getAllCategories,getCategoryById,
+  createCategory,getAllCategories,getCategoryById,updateCategory,
 } from "../controllers/categoryController.js";
 
 
@@ -14,5 +14,6 @@ router.post("/",protect,authorize("admin"),createCategory);
 router.get("/",getAllCategories);
 
 router.get("/:id", getCategoryById);
+ router.put("/:id",protect,authorize("admin"),updateCategory);
 
 export default router;

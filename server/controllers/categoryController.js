@@ -133,3 +133,54 @@ export const getCategoryById = asyncHandler(async (req, res) => {
     category,
   });
 });
+
+export const updateCategory = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { categoryName, description } = req.body || {};
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    throw new ApiError(400, "Invalid category ID");
+  }
+
+  const category = await Category.findOne({
+    _id: id,
+    isActive: true,
+  });
+
+  if (!category) {
+    throw new ApiError(404, "Category not found");
+  }
+
+  if (categoryName !== undefined) {
+    if (!categoryName.trim()) {
+      throw new ApiError(400, "Category name cannot be empty");
+    }
+
+    const duplicateCategory = await Category.findOne({
+      _id: { $ne: id },
+      categoryName: {
+        $regex: `^${categoryName.trim()}$`,
+        $options: "i",
+      },
+      isActive: true,
+    });
+
+    if (duplicateCategory) {
+      throw new ApiError(409, "Category already exists");
+    }
+
+    category.categoryName = categoryName.trim();
+  }
+
+  if (description !== undefined) {
+    category.description = description.trim();
+  }
+
+  await category.save();
+
+  res.status(200).json({
+    success: true,
+    message: "Category updated successfully",
+    category,
+  });
+});
