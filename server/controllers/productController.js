@@ -293,3 +293,28 @@ export const getAllProducts = asyncHandler(async (req, res) => {
     products,
   });
 });
+
+export const getProductById = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    throw new ApiError(400, "Invalid product ID");
+  }
+
+  const product = await Product.findOne({
+    _id: id,
+    isActive: true,
+  })
+    .populate("categoryId", "categoryName description image")
+    .populate("createdBy", "name email");
+
+  if (!product) {
+    throw new ApiError(404, "Product not found");
+  }
+
+  res.status(200).json({
+    success: true,
+    message: "Product fetched successfully",
+    product,
+  });
+});
