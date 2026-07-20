@@ -122,6 +122,16 @@ const productSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
+    deletedAt: {
+  type: Date,
+  default: null,
+},
+
+deletedBy: {
+  type: mongoose.Schema.Types.ObjectId,
+  ref: "User",
+  default: null,
+},
   },
   {
     timestamps: true,

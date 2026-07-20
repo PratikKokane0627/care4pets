@@ -5,7 +5,7 @@ import { authorize } from "../middleware/roleMiddleware.js";
 import upload from "../middleware/uploadMiddleware.js";
 
 import {
-  createProduct, getAllProducts,getProductById, updateProduct,
+  createProduct, getAllProducts,getProductById, updateProduct, deleteProduct,
 } from "../controllers/productController.js";
 
 
@@ -16,6 +16,7 @@ router.post("/",protect,authorize("admin"),createProduct);
 
 router.get("/:id", getProductById);
 router.put("/:id",protect,authorize("admin"),updateProduct);
+router.delete("/:id",protect,authorize("admin"),deleteProduct);
 
 
 export default router;
