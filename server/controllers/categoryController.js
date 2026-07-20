@@ -184,3 +184,31 @@ export const updateCategory = asyncHandler(async (req, res) => {
     category,
   });
 });
+
+
+export const deleteCategory = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    throw new ApiError(400, "Invalid category ID");
+  }
+
+  const category = await Category.findOne({
+    _id: id,
+    isActive: true,
+  });
+
+  if (!category) {
+    throw new ApiError(404, "Category not found");
+  }
+
+  category.isActive = false;
+
+  await category.save();
+
+  res.status(200).json({
+    success: true,
+    message: "Category deleted successfully",
+  });
+});
+
