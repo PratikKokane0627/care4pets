@@ -318,3 +318,153 @@ export const getProductById = asyncHandler(async (req, res) => {
     product,
   });
 });
+
+export const updateProduct = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    throw new ApiError(400, "Invalid product ID");
+  }
+
+  const product = await Product.findOne({
+    _id: id,
+    isActive: true,
+  });
+
+  if (!product) {
+    throw new ApiError(404, "Product not found");
+  }
+
+  const {
+    productName,
+    description,
+    categoryId,
+    brand,
+    price,
+    discountPrice,
+    stock,
+    sku,
+    petType,
+    isFeatured,
+  } = req.body || {};
+
+  // Product Name
+  if (productName !== undefined) {
+    if (!productName.trim()) {
+      throw new ApiError(400, "Product name cannot be empty");
+    }
+
+    const existingProduct = await Product.findOne({
+      _id: { $ne: id },
+      productName: {
+        $regex: `^${productName.trim()}$`,
+        $options: "i",
+      },
+      categoryId: categoryId || product.categoryId,
+      isActive: true,
+    });
+
+    if (existingProduct) {
+      throw new ApiError(
+        409,
+        "Product already exists in this category"
+      );
+    }
+
+    product.productName = productName.trim();
+  }
+
+  // Description
+  if (description !== undefined) {
+    product.description = description.trim();
+  }
+
+  // Category
+  if (categoryId !== undefined) {
+    if (!mongoose.Types.ObjectId.isValid(categoryId)) {
+      throw new ApiError(400, "Invalid category ID");
+    }
+
+    const category = await Category.findOne({
+      _id: categoryId,
+      isActive: true,
+    });
+
+    if (!category) {
+      throw new ApiError(404, "Category not found");
+    }
+
+    product.categoryId = categoryId;
+  }
+
+  // Brand
+  if (brand !== undefined) {
+    product.brand = brand.trim();
+  }
+
+  // Price
+  if (price !== undefined) {
+    if (price < 0) {
+      throw new ApiError(400, "Price cannot be negative");
+    }
+
+    product.price = price;
+  }
+
+  // Discount Price
+  if (discountPrice !== undefined) {
+    if (discountPrice !== null && discountPrice >= product.price) {
+      throw new ApiError(
+        400,
+        "Discount price must be less than price"
+      );
+    }
+
+    product.discountPrice = discountPrice;
+  }
+
+  // Stock
+  if (stock !== undefined) {
+    if (stock < 0) {
+      throw new ApiError(400, "Stock cannot be negative");
+    }
+
+    product.stock = stock;
+  }
+
+  // SKU
+  if (sku !== undefined) {
+    const existingSku = await Product.findOne({
+      _id: { $ne: id },
+      sku: sku.trim().toUpperCase(),
+    });
+
+    if (existingSku) {
+      throw new ApiError(409, "SKU already exists");
+    }
+
+    product.sku = sku.trim().toUpperCase();
+  }
+
+  // Pet Type
+  if (petType !== undefined) {
+    product.petType = petType;
+  }
+
+  // Featured
+  if (isFeatured !== undefined) {
+    product.isFeatured = isFeatured;
+  }
+
+  await product.save();
+
+  const updatedProduct = await Product.findById(product._id)
+    .populate("categoryId", "categoryName")
+    .populate("createdBy", "name email");
+
+  res.status(200).json({
+    success: true,
+    message: "Product updated successfully",
+    product: updatedProduct,
+  });
+});
