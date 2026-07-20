@@ -673,3 +673,96 @@ export const updateProductStock = asyncHandler(async (req, res) => {
     },
   });
 });
+
+
+export const getProductDashboard = asyncHandler(async (req, res) => {
+  const [
+    totalProducts,
+    activeProducts,
+    inactiveProducts,
+    featuredProducts,
+    outOfStockProducts,
+    lowStockProducts,
+    recentProducts,
+    inventory,
+  ] = await Promise.all([
+    Product.countDocuments(),
+
+    Product.countDocuments({
+      isActive: true,
+    }),
+
+    Product.countDocuments({
+      isActive: false,
+    }),
+
+    Product.countDocuments({
+      isActive: true,
+      isFeatured: true,
+    }),
+
+    Product.countDocuments({
+      isActive: true,
+      stock: 0,
+    }),
+
+    Product.countDocuments({
+      isActive: true,
+      stock: {
+        $gt: 0,
+        $lte: 10,
+      },
+    }),
+
+    Product.find({
+      isActive: true,
+    })
+      .populate("categoryId", "categoryName")
+      .sort({
+        createdAt: -1,
+      })
+      .limit(5),
+
+    Product.aggregate([
+      {
+        $match: {
+          isActive: true,
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          totalInventoryValue: {
+            $sum: {
+              $multiply: [
+                "$price",
+                "$stock",
+              ],
+            },
+          },
+        },
+      },
+    ]),
+  ]);
+
+  const totalInventoryValue =
+    inventory.length > 0
+      ? inventory[0].totalInventoryValue
+      : 0;
+
+  res.status(200).json({
+    success: true,
+    message: "Product dashboard fetched successfully",
+
+    dashboard: {
+      totalProducts,
+      activeProducts,
+      inactiveProducts,
+      featuredProducts,
+      outOfStockProducts,
+      lowStockProducts,
+      totalInventoryValue,
+      recentProducts,
+    },
+  });
+});
