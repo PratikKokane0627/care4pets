@@ -4,6 +4,7 @@ import asyncHandler from "../utils/asyncHandler.js";
 import ApiError from "../utils/ApiError.js";
 import cloudinary from "../config/cloudinary.js";
 import uploadToCloudinary from "../utils/uploadToCloudinary.js";
+import Category from "../models/Category.js";
 
 export const createProduct = asyncHandler(async (req, res) => {
   const {
@@ -496,3 +497,79 @@ await product.save();
     message: "Product deleted successfully",
   });
 });
+
+export const uploadProductImages = asyncHandler(
+  async (req, res) => {
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      throw new ApiError(400, "Invalid product ID");
+    }
+
+    const product = await Product.findOne({
+      _id: id,
+      isActive: true,
+    });
+
+    if (!product) {
+      throw new ApiError(404, "Product not found");
+    }
+
+    if (!req.files || req.files.length === 0) {
+      throw new ApiError(
+        400,
+        "Please select at least one image"
+      );
+    }
+
+    const existingImageCount = product.images?.length || 0;
+    const maximumImages = 5;
+
+    if (
+      existingImageCount + req.files.length >
+      maximumImages
+    ) {
+      throw new ApiError(
+        400,
+        `A product can have a maximum of ${maximumImages} images`
+      );
+    }
+
+    const uploadedImages = [];
+
+    try {
+      for (const file of req.files) {
+        const result = await uploadToCloudinary(
+          file.buffer,
+          "care4pets/products"
+        );
+
+        uploadedImages.push({
+          url: result.secure_url,
+          publicId: result.public_id,
+        });
+      }
+
+      product.images.push(...uploadedImages);
+
+      await product.save();
+    } catch (error) {
+      await Promise.allSettled(
+        uploadedImages.map((image) =>
+          deleteFromCloudinary(image.publicId)
+        )
+      );
+
+      throw new ApiError(
+        500,
+        error.message || "Product image upload failed"
+      );
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Product images uploaded successfully",
+      images: product.images,
+    });
+  }
+);
