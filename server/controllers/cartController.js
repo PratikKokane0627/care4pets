@@ -206,3 +206,55 @@ export const updateCartItemQuantity = asyncHandler(async (req, res) => {
     cart,
   });
 });
+
+
+export const removeCartItem = asyncHandler(async (req, res) => {
+  const { productId } = req.params;
+  const userId = req.user._id;
+
+  if (!mongoose.Types.ObjectId.isValid(productId)) {
+    throw new ApiError(400, "Invalid product ID");
+  }
+
+  const cart = await Cart.findOne({ userId });
+
+  if (!cart) {
+    throw new ApiError(404, "Cart not found");
+  }
+
+  const itemExists = cart.items.some(
+    (item) => item.productId.toString() === productId
+  );
+
+  if (!itemExists) {
+    throw new ApiError(404, "Product not found in cart");
+  }
+
+  cart.items = cart.items.filter(
+    (item) => item.productId.toString() !== productId
+  );
+
+  cart.totalItems = cart.items.reduce(
+    (sum, item) => sum + item.quantity,
+    0
+  );
+
+  cart.totalAmount = cart.items.reduce(
+    (sum, item) => sum + item.totalPrice,
+    0
+  );
+
+  await cart.save();
+
+  await cart.populate({
+    path: "items.productId",
+    select:
+      "productName images price discountPrice stock brand isActive",
+  });
+
+  res.status(200).json({
+    success: true,
+    message: "Product removed from cart successfully",
+    cart,
+  });
+});
