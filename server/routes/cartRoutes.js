@@ -1,5 +1,5 @@
 import express from "express";
-import { addToCart,getUserCart,
+import { addToCart,getUserCart,updateCartItemQuantity,
 
  } from "../controllers/cartController.js";
 import { protect } from "../middleware/authMiddleware.js";
@@ -8,5 +8,7 @@ const router = express.Router();
 
 router.get("/",protect, getUserCart)
 router.post("/", protect, addToCart);
+
+router.patch("/:productId",protect,updateCartItemQuantity);
 
 export default router;
