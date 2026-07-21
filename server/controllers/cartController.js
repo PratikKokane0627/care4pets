@@ -81,3 +81,59 @@ export const addToCart = asyncHandler(async (req, res) => {
     cart,
   });
 });
+export const getUserCart = asyncHandler(async (req, res) => {
+  const userId = req.user._id;
+
+  const cart = await Cart.findOne({ userId }).populate({
+    path: "items.productId",
+    select:
+      "productName images price discountPrice stock brand isActive",
+  });
+
+  if (!cart) {
+    return res.status(200).json({
+      success: true,
+      message: "Cart is empty",
+      cart: {
+        userId,
+        items: [],
+        totalItems: 0,
+        totalAmount: 0,
+      },
+    });
+  }
+
+  // Remove inactive or deleted products
+  const availableItems = cart.items.filter(
+    (item) => item.productId && item.productId.isActive
+  );
+
+  // Add here
+  const totalItems = availableItems.reduce(
+    (sum, item) => sum + item.quantity,
+    0
+  );
+
+  const totalAmount = availableItems.reduce(
+    (sum, item) => sum + item.totalPrice,
+    0
+  );
+
+  // Then return recalculated values here
+  res.status(200).json({
+    success: true,
+    message:
+      availableItems.length > 0
+        ? "Cart fetched successfully"
+        : "Cart is empty",
+    cart: {
+      _id: cart._id,
+      userId: cart.userId,
+      items: availableItems,
+      totalItems,
+      totalAmount,
+      createdAt: cart.createdAt,
+      updatedAt: cart.updatedAt,
+    },
+  });
+});

@@ -1,9 +1,12 @@
 import express from "express";
-import { addToCart } from "../controllers/cartController.js";
+import { addToCart,getUserCart,
+
+ } from "../controllers/cartController.js";
 import { protect } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
+router.get("/",protect, getUserCart)
 router.post("/", protect, addToCart);
 
 export default router;
