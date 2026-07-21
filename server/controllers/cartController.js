@@ -289,3 +289,68 @@ export const clearCart = asyncHandler(async (req, res) => {
     cart,
   });
 });
+
+export const getCartSummary = asyncHandler(async (req, res) => {
+  const userId = req.user._id;
+
+  const cart = await Cart.findOne({ userId }).populate({
+    path: "items.productId",
+    select:
+      "productName price discountPrice stock isActive images brand",
+  });
+
+  if (!cart || cart.items.length === 0) {
+    return res.status(200).json({
+      success: true,
+      message: "Cart is empty",
+      summary: {
+        uniqueProducts: 0,
+        totalItems: 0,
+        subtotal: 0,
+        availableItems: 0,
+        unavailableItems: 0,
+        outOfStockItems: 0,
+      },
+    });
+  }
+
+  let uniqueProducts = 0;
+  let totalItems = 0;
+  let subtotal = 0;
+  let availableItems = 0;
+  let unavailableItems = 0;
+  let outOfStockItems = 0;
+
+  cart.items.forEach((item) => {
+    const product = item.productId;
+
+    uniqueProducts += 1;
+    totalItems += item.quantity;
+
+    if (!product || !product.isActive) {
+      unavailableItems += 1;
+      return;
+    }
+
+    if (product.stock === 0) {
+      outOfStockItems += 1;
+      return;
+    }
+
+    availableItems += 1;
+    subtotal += item.totalPrice;
+  });
+
+  res.status(200).json({
+    success: true,
+    message: "Cart summary fetched successfully",
+    summary: {
+      uniqueProducts,
+      totalItems,
+      subtotal,
+      availableItems,
+      unavailableItems,
+      outOfStockItems,
+    },
+  });
+});
