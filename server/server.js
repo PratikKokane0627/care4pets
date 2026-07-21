@@ -14,6 +14,7 @@ import groomingServiceRoutes from "./routes/groomingServiceRoutes.js";
 import groomingBookingRoutes from "./routes/groomingBookingRoutes.js";
 import categoryRoutes from "./routes/categoryRoutes.js";
 import productRoutes from "./routes/productRoutes.js";
+import cartRoutes from "./routes/cartRoutes.js";
 import errorMiddleware from "./middleware/errorMiddleware.js";
 import ApiError from "./utils/ApiError.js";
 
@@ -66,6 +67,7 @@ app.use("/api/grooming-services",groomingServiceRoutes);
 app.use("/api/grooming-bookings",groomingBookingRoutes);
 app.use("/api/categories", categoryRoutes);
 app.use("/api/products", productRoutes);
+app.use("/api/cart", cartRoutes);
 
 
 
