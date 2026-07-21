@@ -258,3 +258,34 @@ export const removeCartItem = asyncHandler(async (req, res) => {
     cart,
   });
 });
+
+export const clearCart = asyncHandler(async (req, res) => {
+  const userId = req.user._id;
+
+  const cart = await Cart.findOne({ userId });
+
+  if (!cart) {
+    return res.status(200).json({
+      success: true,
+      message: "Cart is already empty",
+      cart: {
+        userId,
+        items: [],
+        totalItems: 0,
+        totalAmount: 0,
+      },
+    });
+  }
+
+  cart.items = [];
+  cart.totalItems = 0;
+  cart.totalAmount = 0;
+
+  await cart.save();
+
+  res.status(200).json({
+    success: true,
+    message: "Cart cleared successfully",
+    cart,
+  });
+});
