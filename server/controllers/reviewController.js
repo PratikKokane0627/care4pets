@@ -633,3 +633,58 @@ export const getAllReviews = asyncHandler(async (req, res) => {
     reviews,
   });
 });
+
+export const adminDeleteReview = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    throw new ApiError(400, "Invalid review ID");
+  }
+
+  const session = await mongoose.startSession();
+
+  let deletedReview;
+
+  try {
+    await session.withTransaction(async () => {
+      const review = await Review.findById(id).session(session);
+
+      if (!review) {
+        throw new ApiError(404, "Review not found");
+      }
+
+      if (!review.isActive) {
+        throw new ApiError(
+          400,
+          "Review is already deleted"
+        );
+      }
+
+      review.isActive = false;
+      review.deletedBy = req.user._id;
+review.deletedAt = new Date();
+
+      await review.save({ session });
+
+      await updateProductRating(
+        review.productId,
+        session
+      );
+
+      deletedReview = review;
+    });
+  } finally {
+    await session.endSession();
+  }
+
+  res.status(200).json({
+    success: true,
+    message: "Review deleted successfully by admin",
+    review: {
+      _id: deletedReview._id,
+      userId: deletedReview.userId,
+      productId: deletedReview.productId,
+      isActive: deletedReview.isActive,
+    },
+  });
+});
