@@ -150,44 +150,59 @@ export const addReview = asyncHandler(async (req, res) => {
   }
 
   const existingReview = await Review.findOne({
-    userId,
-    productId,
-  });
+  userId,
+  productId,
+});
 
-  if (existingReview) {
-    throw new ApiError(
-      409,
-      "You have already reviewed this product"
-    );
-  }
+if (existingReview?.isActive) {
+  throw new ApiError(
+    409,
+    "You have already reviewed this product"
+  );
+}
 
   const session = await mongoose.startSession();
 
   let createdReview;
 
   try {
-    await session.withTransaction(async () => {
-      const reviews = await Review.create(
-        [
-          {
-            userId,
-            productId,
-            orderId,
-            rating: numericRating,
-            comment: trimmedComment,
-            isVerifiedPurchase: true,
-            isActive: true,
-          },
-        ],
+   await session.withTransaction(async () => {
+  if (existingReview && !existingReview.isActive) {
+    existingReview.orderId = orderId;
+    existingReview.rating = numericRating;
+    existingReview.comment = trimmedComment;
+    existingReview.isVerifiedPurchase = true;
+    existingReview.isActive = true;
+
+    await existingReview.save({ session });
+
+    createdReview = existingReview;
+  } else {
+    const reviews = await Review.create(
+      [
         {
-          session,
-        }
-      );
+          userId,
+          productId,
+          orderId,
+          rating: numericRating,
+          comment: trimmedComment,
+          isVerifiedPurchase: true,
+          isActive: true,
+        },
+      ],
+      {
+        session,
+      }
+    );
 
-      createdReview = reviews[0];
+    createdReview = reviews[0];
+  }
 
-      await updateProductRating(productId, session);
-    });
+  await updateProductRating(
+    productId,
+    session
+  );
+});
   } finally {
     await session.endSession();
   }
@@ -414,5 +429,59 @@ export const updateReview = asyncHandler(async (req, res) => {
     success: true,
     message: "Review updated successfully",
     review: updatedReview,
+  });
+});
+
+
+export const deleteReview = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const userId = req.user._id;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    throw new ApiError(400, "Invalid review ID");
+  }
+
+  const session = await mongoose.startSession();
+
+  let deletedReview;
+
+  try {
+    await session.withTransaction(async () => {
+      const review = await Review.findById(id).session(session);
+
+      if (!review || !review.isActive) {
+        throw new ApiError(404, "Review not found");
+      }
+
+      if (review.userId.toString() !== userId.toString()) {
+        throw new ApiError(
+          403,
+          "You are not authorized to delete this review"
+        );
+      }
+
+      review.isActive = false;
+
+      await review.save({ session });
+
+      await updateProductRating(
+        review.productId,
+        session
+      );
+
+      deletedReview = review;
+    });
+  } finally {
+    await session.endSession();
+  }
+
+  res.status(200).json({
+    success: true,
+    message: "Review deleted successfully",
+    review: {
+      _id: deletedReview._id,
+      productId: deletedReview.productId,
+      isActive: deletedReview.isActive,
+    },
   });
 });

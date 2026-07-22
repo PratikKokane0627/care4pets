@@ -1,6 +1,6 @@
 import express from "express";
 import {
-  addReview,getProductReviews,updateReview,
+  addReview,getProductReviews,updateReview, deleteReview,
 } from "../controllers/reviewController.js";
 import {
   protect,
@@ -12,5 +12,6 @@ router.post("/", protect, addReview);
 
 router.get("/product/:productId",getProductReviews);
 router.put("/:id",protect,updateReview);
+router.delete("/:id",protect,deleteReview);
 
 export default router;
