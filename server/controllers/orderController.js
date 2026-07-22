@@ -173,3 +173,19 @@ export const placeOrder = asyncHandler(async (req, res) => {
     order,
   });
 });
+
+export const getMyOrders = asyncHandler(async (req, res) => {
+  const userId = req.user._id;
+
+  const orders = await Order.find({ userId })
+    .sort({ createdAt: -1 })
+    .populate("items.productId", "productName images")
+    .populate("userId", "name email");
+
+  res.status(200).json({
+    success: true,
+    message: "Orders fetched successfully",
+    totalOrders: orders.length,
+    orders,
+  });
+});
