@@ -189,3 +189,41 @@ export const getMyOrders = asyncHandler(async (req, res) => {
     orders,
   });
 });
+
+export const getOrderById = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    throw new ApiError(400, "Invalid order ID");
+  }
+
+  const order = await Order.findById(id)
+    .populate("userId", "name email phone")
+    .populate(
+      "items.productId",
+      "productName images brand price discountPrice stock isActive"
+    );
+
+  if (!order) {
+    throw new ApiError(404, "Order not found");
+  }
+
+  const loggedInUserId = req.user._id.toString();
+  const orderUserId = order.userId._id.toString();
+
+  if (
+    req.user.role !== "admin" &&
+    loggedInUserId !== orderUserId
+  ) {
+    throw new ApiError(
+      403,
+      "You are not authorized to view this order"
+    );
+  }
+
+  res.status(200).json({
+    success: true,
+    message: "Order fetched successfully",
+    order,
+  });
+});
