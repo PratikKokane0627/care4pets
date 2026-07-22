@@ -227,3 +227,81 @@ export const getOrderById = asyncHandler(async (req, res) => {
     order,
   });
 });
+
+export const cancelOrder = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const userId = req.user._id;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    throw new ApiError(400, "Invalid order ID");
+  }
+
+  const session = await mongoose.startSession();
+
+  let cancelledOrder;
+
+  try {
+    await session.withTransaction(async () => {
+      const order = await Order.findById(id).session(session);
+
+      if (!order) {
+        throw new ApiError(404, "Order not found");
+      }
+
+      if (order.userId.toString() !== userId.toString()) {
+        throw new ApiError(
+          403,
+          "You are not authorized to cancel this order"
+        );
+      }
+
+      const cancellableStatuses = [
+        "Pending",
+        "Confirmed",
+      ];
+
+      if (!cancellableStatuses.includes(order.orderStatus)) {
+        throw new ApiError(
+          400,
+          `Order cannot be cancelled because its status is ${order.orderStatus}`
+        );
+      }
+
+      for (const item of order.items) {
+        await Product.findByIdAndUpdate(
+          item.productId,
+          {
+            $inc: {
+              stock: item.quantity,
+            },
+          },
+          {
+            session,
+          }
+        );
+      }
+
+      order.orderStatus = "Cancelled";
+      order.cancelledAt = new Date();
+
+      if (
+        order.paymentMethod === "ONLINE" &&
+        order.paymentStatus === "Paid"
+      ) {
+        order.paymentStatus = "Refunded";
+      }
+
+      await order.save({ session });
+
+      cancelledOrder = order;
+    });
+  } finally {
+    await session.endSession();
+  }
+
+  res.status(200).json({
+    success: true,
+    message: "Order cancelled successfully",
+    order: cancelledOrder,
+  });
+});
