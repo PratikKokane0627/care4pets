@@ -1,6 +1,6 @@
 import express from "express";
 import {
-  addReview,getProductReviews,updateReview, deleteReview, getAllReviews,adminDeleteReview,
+  addReview,getProductReviews,updateReview, deleteReview, getAllReviews,adminDeleteReview, getReviewDashboard,
 } from "../controllers/reviewController.js";
 import {protect,} from "../middleware/authMiddleware.js";
 import { authorize } from "../middleware/roleMiddleware.js";
@@ -11,6 +11,7 @@ router.post("/", protect, addReview);
 
 router.get("/product/:productId",getProductReviews);
 router.get("/admin/all", protect, authorize("admin"),getAllReviews);
+router.get("/admin/dashboard",protect,authorize("admin"),getReviewDashboard);
 router.delete("/admin/:id",protect,authorize("admin"),adminDeleteReview);
 router.put("/:id",protect,updateReview);
 router.delete("/:id",protect,deleteReview);

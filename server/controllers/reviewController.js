@@ -688,3 +688,124 @@ review.deletedAt = new Date();
     },
   });
 });
+
+
+export const getReviewDashboard = asyncHandler(async (req, res) => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const [
+    totalReviews,
+    activeReviews,
+    deletedReviews,
+    verifiedPurchaseReviews,
+    averageRating,
+    ratingDistribution,
+    todayReviews,
+    recentReviews,
+  ] = await Promise.all([
+    Review.countDocuments(),
+
+    Review.countDocuments({
+      isActive: true,
+    }),
+
+    Review.countDocuments({
+      isActive: false,
+    }),
+
+    Review.countDocuments({
+      isVerifiedPurchase: true,
+      isActive: true,
+    }),
+
+    Review.aggregate([
+      {
+        $match: {
+          isActive: true,
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          averageRating: {
+            $avg: "$rating",
+          },
+        },
+      },
+    ]),
+
+    Review.aggregate([
+      {
+        $match: {
+          isActive: true,
+        },
+      },
+      {
+        $group: {
+          _id: "$rating",
+          count: {
+            $sum: 1,
+          },
+        },
+      },
+    ]),
+
+    Review.countDocuments({
+      isActive: true,
+      createdAt: {
+        $gte: today,
+      },
+    }),
+
+    Review.find({
+      isActive: true,
+    })
+      .populate("userId", "name email")
+      .populate(
+        "productId",
+        "productName images averageRating"
+      )
+      .sort({
+        createdAt: -1,
+      })
+      .limit(5),
+  ]);
+
+  const ratings = {
+    5: 0,
+    4: 0,
+    3: 0,
+    2: 0,
+    1: 0,
+  };
+
+  ratingDistribution.forEach((item) => {
+    ratings[item._id] = item.count;
+  });
+
+  res.status(200).json({
+    success: true,
+    message: "Review dashboard fetched successfully",
+
+    dashboard: {
+      totalReviews,
+      activeReviews,
+      deletedReviews,
+      verifiedPurchaseReviews,
+
+      averageRating:
+        averageRating.length > 0
+          ? Number(
+              averageRating[0].averageRating.toFixed(1)
+            )
+          : 0,
+
+      ratingDistribution: ratings,
+
+      todayReviews,
+
+      recentReviews,
+    },
+  });
+});
