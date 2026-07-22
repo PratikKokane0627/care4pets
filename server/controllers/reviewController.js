@@ -331,3 +331,88 @@ export const getProductReviews = asyncHandler(async (req, res) => {
     reviews,
   });
 });
+
+
+export const updateReview = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { rating, comment } = req.body;
+  const userId = req.user._id;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    throw new ApiError(400, "Invalid review ID");
+  }
+
+  const numericRating = Number(rating);
+
+  if (
+    !Number.isInteger(numericRating) ||
+    numericRating < 1 ||
+    numericRating > 5
+  ) {
+    throw new ApiError(
+      400,
+      "Rating must be an integer between 1 and 5"
+    );
+  }
+
+  if (!comment?.trim()) {
+    throw new ApiError(400, "Comment is required");
+  }
+
+  if (comment.trim().length < 3) {
+    throw new ApiError(
+      400,
+      "Comment must contain at least 3 characters"
+    );
+  }
+
+  if (comment.trim().length > 1000) {
+    throw new ApiError(
+      400,
+      "Comment cannot exceed 1000 characters"
+    );
+  }
+
+  const session = await mongoose.startSession();
+
+  let updatedReview;
+
+  try {
+    await session.withTransaction(async () => {
+      const review = await Review.findById(id).session(session);
+
+      if (!review || !review.isActive) {
+        throw new ApiError(404, "Review not found");
+      }
+
+      if (review.userId.toString() !== userId.toString()) {
+        throw new ApiError(
+          403,
+          "You are not authorized to update this review"
+        );
+      }
+
+      review.rating = numericRating;
+      review.comment = comment.trim();
+
+      await review.save({ session });
+
+      await updateProductRating(review.productId, session);
+
+      updatedReview = review;
+    });
+  } finally {
+    await session.endSession();
+  }
+
+  await updatedReview.populate(
+    "userId",
+    "name profileImage"
+  );
+
+  res.status(200).json({
+    success: true,
+    message: "Review updated successfully",
+    review: updatedReview,
+  });
+});
