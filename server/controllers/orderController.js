@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import Order from "../models/Order.js";
 import Cart from "../models/Cart.js";
+import User from "../models/User.js";
 import Product from "../models/Product.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import ApiError from "../utils/ApiError.js";
@@ -303,5 +304,173 @@ export const cancelOrder = asyncHandler(async (req, res) => {
     success: true,
     message: "Order cancelled successfully",
     order: cancelledOrder,
+  });
+});
+
+export const getAllOrders = asyncHandler(async (req, res) => {
+  const {
+    search,
+    orderStatus,
+    paymentStatus,
+    paymentMethod,
+    startDate,
+    endDate,
+    page = 1,
+    limit = 10,
+    sortBy = "createdAt",
+    sortOrder = "desc",
+  } = req.query;
+
+  const query = {};
+
+  if (orderStatus) {
+    query.orderStatus = orderStatus;
+  }
+
+  if (paymentStatus) {
+    query.paymentStatus = paymentStatus;
+  }
+
+  if (paymentMethod) {
+    query.paymentMethod = paymentMethod;
+  }
+
+  if (startDate || endDate) {
+    query.createdAt = {};
+
+    if (startDate) {
+      const parsedStartDate = new Date(startDate);
+
+      if (Number.isNaN(parsedStartDate.getTime())) {
+        throw new ApiError(400, "Invalid start date");
+      }
+
+      query.createdAt.$gte = parsedStartDate;
+    }
+
+    if (endDate) {
+      const parsedEndDate = new Date(endDate);
+
+      if (Number.isNaN(parsedEndDate.getTime())) {
+        throw new ApiError(400, "Invalid end date");
+      }
+
+      parsedEndDate.setHours(23, 59, 59, 999);
+      query.createdAt.$lte = parsedEndDate;
+    }
+  }
+
+  if (search?.trim()) {
+    const searchText = search.trim();
+
+    const matchingUsers = await User.find({
+      $or: [
+        {
+          name: {
+            $regex: searchText,
+            $options: "i",
+          },
+        },
+        {
+          email: {
+            $regex: searchText,
+            $options: "i",
+          },
+        },
+      ],
+    }).select("_id");
+
+    const userIds = matchingUsers.map((user) => user._id);
+
+    const searchConditions = [
+      {
+        "items.productName": {
+          $regex: searchText,
+          $options: "i",
+        },
+      },
+      {
+        "shippingAddress.fullName": {
+          $regex: searchText,
+          $options: "i",
+        },
+      },
+      {
+        "shippingAddress.phone": {
+          $regex: searchText,
+          $options: "i",
+        },
+      },
+      {
+        userId: {
+          $in: userIds,
+        },
+      },
+    ];
+
+    if (mongoose.Types.ObjectId.isValid(searchText)) {
+      searchConditions.push({
+        _id: searchText,
+      });
+    }
+
+    query.$or = searchConditions;
+  }
+
+  const pageNumber = Math.max(Number.parseInt(page, 10) || 1, 1);
+
+  const pageLimit = Math.min(
+    Math.max(Number.parseInt(limit, 10) || 10, 1),
+    100
+  );
+
+  const skip = (pageNumber - 1) * pageLimit;
+
+  const allowedSortFields = [
+    "createdAt",
+    "updatedAt",
+    "totalAmount",
+    "totalItems",
+    "orderStatus",
+    "paymentStatus",
+  ];
+
+  const selectedSortField = allowedSortFields.includes(sortBy)
+    ? sortBy
+    : "createdAt";
+
+  const selectedSortOrder =
+    sortOrder === "asc" ? 1 : -1;
+
+  const [orders, totalOrders] = await Promise.all([
+    Order.find(query)
+      .populate("userId", "name email phone role")
+      .populate(
+        "items.productId",
+        "productName images brand isActive"
+      )
+      .sort({
+        [selectedSortField]: selectedSortOrder,
+      })
+      .skip(skip)
+      .limit(pageLimit),
+
+    Order.countDocuments(query),
+  ]);
+
+  const totalPages = Math.ceil(totalOrders / pageLimit);
+
+  res.status(200).json({
+    success: true,
+    message: "Orders fetched successfully",
+    pagination: {
+      currentPage: pageNumber,
+      totalPages,
+      totalOrders,
+      limit: pageLimit,
+      hasNextPage: pageNumber < totalPages,
+      hasPreviousPage: pageNumber > 1,
+    },
+    orders,
   });
 });
