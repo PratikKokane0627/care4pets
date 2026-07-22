@@ -203,3 +203,131 @@ export const addReview = asyncHandler(async (req, res) => {
     review: createdReview,
   });
 });
+
+export const getProductReviews = asyncHandler(async (req, res) => {
+  const { productId } = req.params;
+  const {
+    page = 1,
+    limit = 10,
+    sort = "latest",
+  } = req.query;
+
+  if (!mongoose.Types.ObjectId.isValid(productId)) {
+    throw new ApiError(400, "Invalid product ID");
+  }
+
+  const product = await Product.findById(productId)
+    .select(
+      "productName averageRating totalReviews isActive"
+    );
+
+  if (!product || !product.isActive) {
+    throw new ApiError(404, "Product not found");
+  }
+
+  const pageNumber = Math.max(
+    parseInt(page) || 1,
+    1
+  );
+
+  const pageLimit = Math.min(
+    Math.max(parseInt(limit) || 10, 1),
+    100
+  );
+
+  const skip = (pageNumber - 1) * pageLimit;
+
+  let sortOption = {};
+
+  switch (sort) {
+    case "highest":
+      sortOption = { rating: -1 };
+      break;
+
+    case "lowest":
+      sortOption = { rating: 1 };
+      break;
+
+    case "oldest":
+      sortOption = { createdAt: 1 };
+      break;
+
+    default:
+      sortOption = { createdAt: -1 };
+  }
+
+  const [reviews, totalReviews, ratingStats] =
+    await Promise.all([
+      Review.find({
+        productId,
+        isActive: true,
+      })
+        .populate(
+          "userId",
+          "name profileImage"
+        )
+        .sort(sortOption)
+        .skip(skip)
+        .limit(pageLimit),
+
+      Review.countDocuments({
+        productId,
+        isActive: true,
+      }),
+
+      Review.aggregate([
+        {
+          $match: {
+            productId:
+              new mongoose.Types.ObjectId(productId),
+            isActive: true,
+          },
+        },
+        {
+          $group: {
+            _id: "$rating",
+            count: {
+              $sum: 1,
+            },
+          },
+        },
+      ]),
+    ]);
+
+  const ratingBreakdown = {
+    5: 0,
+    4: 0,
+    3: 0,
+    2: 0,
+    1: 0,
+  };
+
+  ratingStats.forEach((item) => {
+    ratingBreakdown[item._id] = item.count;
+  });
+
+  res.status(200).json({
+    success: true,
+    message: "Product reviews fetched successfully",
+
+    product: {
+      _id: product._id,
+      productName: product.productName,
+      averageRating: product.averageRating,
+      totalReviews: product.totalReviews,
+    },
+
+    ratingBreakdown,
+
+    pagination: {
+      currentPage: pageNumber,
+      totalPages: Math.ceil(
+        totalReviews / pageLimit
+      ),
+      totalReviews,
+      limit: pageLimit,
+    },
+
+    reviews,
+  });
+});
