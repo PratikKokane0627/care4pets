@@ -610,3 +610,139 @@ export const updateOrderStatus = asyncHandler(async (req, res) => {
         order: updatedOrder,
     });
 });
+
+export const getOrderDashboard = asyncHandler(async (req, res) => {
+  const today = new Date();
+
+  today.setHours(0, 0, 0, 0);
+
+  const [
+    totalOrders,
+    pendingOrders,
+    confirmedOrders,
+    packedOrders,
+    shippedOrders,
+    outForDeliveryOrders,
+    deliveredOrders,
+    cancelledOrders,
+    codOrders,
+    onlineOrders,
+    paidOrders,
+    pendingPayments,
+    refundedOrders,
+    revenue,
+    todayOrders,
+    recentOrders,
+  ] = await Promise.all([
+    Order.countDocuments(),
+
+    Order.countDocuments({
+      orderStatus: "Pending",
+    }),
+
+    Order.countDocuments({
+      orderStatus: "Confirmed",
+    }),
+
+    Order.countDocuments({
+      orderStatus: "Packed",
+    }),
+
+    Order.countDocuments({
+      orderStatus: "Shipped",
+    }),
+
+    Order.countDocuments({
+      orderStatus: "Out for Delivery",
+    }),
+
+    Order.countDocuments({
+      orderStatus: "Delivered",
+    }),
+
+    Order.countDocuments({
+      orderStatus: "Cancelled",
+    }),
+
+    Order.countDocuments({
+      paymentMethod: "COD",
+    }),
+
+    Order.countDocuments({
+      paymentMethod: "ONLINE",
+    }),
+
+    Order.countDocuments({
+      paymentStatus: "Paid",
+    }),
+
+    Order.countDocuments({
+      paymentStatus: "Pending",
+    }),
+
+    Order.countDocuments({
+      paymentStatus: "Refunded",
+    }),
+
+    Order.aggregate([
+      {
+        $match: {
+          paymentStatus: "Paid",
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          totalRevenue: {
+            $sum: "$totalAmount",
+          },
+        },
+      },
+    ]),
+
+    Order.countDocuments({
+      createdAt: {
+        $gte: today,
+      },
+    }),
+
+    Order.find()
+      .populate("userId", "name email")
+      .sort({
+        createdAt: -1,
+      })
+      .limit(5),
+  ]);
+
+  res.status(200).json({
+    success: true,
+    message: "Order dashboard fetched successfully",
+
+    dashboard: {
+      totalOrders,
+      pendingOrders,
+      confirmedOrders,
+      packedOrders,
+      shippedOrders,
+      outForDeliveryOrders,
+      deliveredOrders,
+      cancelledOrders,
+
+      codOrders,
+      onlineOrders,
+
+      paidOrders,
+      pendingPayments,
+      refundedOrders,
+
+      totalRevenue:
+        revenue.length > 0
+          ? revenue[0].totalRevenue
+          : 0,
+
+      todayOrders,
+
+      recentOrders,
+    },
+  });
+});

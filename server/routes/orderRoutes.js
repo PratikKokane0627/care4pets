@@ -1,5 +1,5 @@
 import express from "express";
-import { placeOrder,getMyOrders, getOrderById, cancelOrder, getAllOrders,updateOrderStatus,
+import { placeOrder,getMyOrders, getOrderById, cancelOrder, getAllOrders,updateOrderStatus, getOrderDashboard,
 
  } from "../controllers/orderController.js";
 import { protect } from "../middleware/authMiddleware.js";
@@ -10,7 +10,7 @@ const router = express.Router();
 router.post("/", protect, placeOrder);
 router.get("/my-orders",protect,getMyOrders);
 router.get("/admin/all",protect,authorize("admin"),getAllOrders);
-
+router.get("/admin/dashboard",protect,authorize("admin"),getOrderDashboard);
 router.patch("/admin/:id/status",protect,authorize("admin"),updateOrderStatus);
 router.patch( "/:id/cancel",protect,cancelOrder);
 router.get("/:id",protect,getOrderById);
