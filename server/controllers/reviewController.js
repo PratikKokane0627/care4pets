@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import Review from "../models/Review.js";
 import Product from "../models/Product.js";
 import Order from "../models/Order.js";
+import User from "../models/User.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import ApiError from "../utils/ApiError.js";
 
@@ -483,5 +484,152 @@ export const deleteReview = asyncHandler(async (req, res) => {
       productId: deletedReview.productId,
       isActive: deletedReview.isActive,
     },
+  });
+});
+
+export const getAllReviews = asyncHandler(async (req, res) => {
+  const {
+    search,
+    rating,
+    isActive,
+    page = 1,
+    limit = 10,
+    sortBy = "createdAt",
+    sortOrder = "desc",
+  } = req.query;
+
+  const query = {};
+
+  if (rating) {
+    query.rating = Number(rating);
+  }
+
+  if (isActive !== undefined) {
+    query.isActive = isActive === "true";
+  }
+
+  if (search?.trim()) {
+    const searchText = search.trim();
+
+    const matchingUsers = await User.find({
+      $or: [
+        {
+          name: {
+            $regex: searchText,
+            $options: "i",
+          },
+        },
+        {
+          email: {
+            $regex: searchText,
+            $options: "i",
+          },
+        },
+      ],
+    }).select("_id");
+
+    const userIds = matchingUsers.map((user) => user._id);
+
+    const matchingProducts = await Product.find({
+      productName: {
+        $regex: searchText,
+        $options: "i",
+      },
+    }).select("_id");
+
+    const productIds = matchingProducts.map(
+      (product) => product._id
+    );
+
+    query.$or = [
+      {
+        comment: {
+          $regex: searchText,
+          $options: "i",
+        },
+      },
+      {
+        userId: {
+          $in: userIds,
+        },
+      },
+      {
+        productId: {
+          $in: productIds,
+        },
+      },
+    ];
+
+    if (mongoose.Types.ObjectId.isValid(searchText)) {
+      query.$or.push({
+        _id: searchText,
+      });
+    }
+  }
+
+  const pageNumber = Math.max(parseInt(page) || 1, 1);
+
+  const pageLimit = Math.min(
+    Math.max(parseInt(limit) || 10, 1),
+    100
+  );
+
+  const skip = (pageNumber - 1) * pageLimit;
+
+  const allowedSortFields = [
+    "createdAt",
+    "updatedAt",
+    "rating",
+  ];
+
+  const selectedSortField = allowedSortFields.includes(sortBy)
+    ? sortBy
+    : "createdAt";
+
+  const selectedSortOrder =
+    sortOrder === "asc" ? 1 : -1;
+
+  const [reviews, totalReviews] = await Promise.all([
+    Review.find(query)
+      .populate(
+        "userId",
+        "name email profileImage"
+      )
+      .populate(
+        "productId",
+        "productName images averageRating"
+      )
+      .populate(
+        "orderId",
+        "_id orderStatus"
+      )
+      .sort({
+        [selectedSortField]: selectedSortOrder,
+      })
+      .skip(skip)
+      .limit(pageLimit),
+
+    Review.countDocuments(query),
+  ]);
+
+  res.status(200).json({
+    success: true,
+    message: "Reviews fetched successfully",
+
+    pagination: {
+      currentPage: pageNumber,
+      totalPages: Math.ceil(
+        totalReviews / pageLimit
+      ),
+      totalReviews,
+      limit: pageLimit,
+      hasNextPage:
+        pageNumber <
+        Math.ceil(totalReviews / pageLimit),
+      hasPreviousPage:
+        pageNumber > 1,
+    },
+
+    reviews,
   });
 });
