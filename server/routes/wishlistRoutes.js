@@ -1,7 +1,7 @@
 import express from "express";
 
 import {
-  addToWishlist,getMyWishlist, removeFromWishlist, clearWishlist,moveWishlistToCart,
+  addToWishlist,getMyWishlist, removeFromWishlist, clearWishlist,moveWishlistToCart,wishlistSummary,
 } from "../controllers/wishlistController.js";
 
 import {
@@ -12,6 +12,7 @@ const router = express.Router();
 
 router.post("/",protect,addToWishlist);
 router.get("/",protect, getMyWishlist);
+router.get("/summary",protect,wishlistSummary);
 router.delete("/",protect, clearWishlist);
 
 router.post("/:productId/move-to-cart",protect, moveWishlistToCart);

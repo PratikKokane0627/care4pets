@@ -369,3 +369,70 @@ export const moveWishlistToCart = asyncHandler(async (req, res) => {
     await session.endSession();
   }
 });
+
+
+export const wishlistSummary = asyncHandler(async (req, res) => {
+  const userId = req.user._id;
+
+  const wishlist = await Wishlist.aggregate([
+    {
+      $match: {
+        userId: new mongoose.Types.ObjectId(userId),
+      },
+    },
+
+    {
+      $lookup: {
+        from: "products",
+        localField: "productId",
+        foreignField: "_id",
+        as: "product",
+      },
+    },
+
+    {
+      $unwind: "$product",
+    },
+
+    {
+      $match: {
+        "product.isActive": true,
+        "product.isDeleted": false,
+      },
+    },
+  ]);
+
+  const totalItems = wishlist.length;
+
+  const availableProducts = wishlist.filter(
+    (item) => item.product.stock > 0
+  ).length;
+
+  const outOfStockProducts = wishlist.filter(
+    (item) => item.product.stock === 0
+  ).length;
+
+  const recentlyAdded = wishlist
+    .sort(
+      (a, b) =>
+        new Date(b.createdAt) - new Date(a.createdAt)
+    )
+    .slice(0, 5)
+    .map((item) => ({
+      _id: item.product._id,
+      productName: item.product.productName,
+      price: item.product.price,
+      discountPrice: item.product.discountPrice,
+      images: item.product.images,
+    }));
+
+  res.status(200).json({
+    success: true,
+    summary: {
+      totalItems,
+      availableProducts,
+      outOfStockProducts,
+      recentlyAdded,
+    },
+  });
+});
