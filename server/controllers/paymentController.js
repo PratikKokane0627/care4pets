@@ -4,6 +4,7 @@ import asyncHandler from "../utils/asyncHandler.js";
 import ApiError from "../utils/ApiError.js";
 import mongoose from "mongoose";
 import crypto from "crypto";
+import razorpay from "../config/razorpay.js";
 
 export const createPaymentOrder = asyncHandler(async (req, res) => {
   const { orderId } = req.params;
@@ -309,5 +310,56 @@ export const getPaymentHistory = asyncHandler(async (req, res) => {
     totalPages: Math.ceil(totalPayments / limit),
     totalPayments,
     payments,
+  });
+});
+
+export const refundPayment = asyncHandler(async (req, res) => {
+  const { orderId } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(orderId)) {
+    res.status(400);
+    throw new Error("Invalid order ID");
+  }
+
+  const order = await Order.findById(orderId);
+
+  if (!order) {
+    res.status(404);
+    throw new Error("Order not found");
+  }
+
+  if (order.paymentStatus !== "Paid") {
+    res.status(400);
+    throw new Error("Only paid orders can be refunded");
+  }
+
+  if (!order.razorpayPaymentId) {
+    res.status(400);
+    throw new Error("Razorpay payment ID not found");
+  }
+
+  const refund = await razorpay.payments.refund(
+    order.razorpayPaymentId,
+    {
+      amount: order.totalAmount * 100, // amount in paise
+    }
+  );
+
+  order.paymentStatus = "Refunded";
+  order.refundId = refund.id;
+  order.refundAmount = refund.amount / 100;
+  order.refundedAt = new Date();
+
+  await order.save();
+
+  res.status(200).json({
+    success: true,
+    message: "Payment refunded successfully",
+    refund: {
+      refundId: refund.id,
+      amount: refund.amount / 100,
+      status: refund.status,
+      refundedAt: order.refundedAt,
+    },
   });
 });
