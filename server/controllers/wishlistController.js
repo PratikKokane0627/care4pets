@@ -436,3 +436,144 @@ export const wishlistSummary = asyncHandler(async (req, res) => {
     },
   });
 });
+
+export const getWishlistDashboard = asyncHandler(async (req, res) => {
+  const [
+    totalWishlistItems,
+    uniqueUsers,
+    uniqueProducts,
+    availableProducts,
+    outOfStockProducts,
+    mostWishlistedProducts,
+    recentWishlistItems,
+  ] = await Promise.all([
+    Wishlist.countDocuments(),
+
+    Wishlist.distinct("userId"),
+
+    Wishlist.distinct("productId"),
+
+    Wishlist.aggregate([
+      {
+        $lookup: {
+          from: "products",
+          localField: "productId",
+          foreignField: "_id",
+          as: "product",
+        },
+      },
+      {
+        $unwind: "$product",
+      },
+      {
+        $match: {
+          "product.isActive": true,
+          "product.isDeleted": false,
+          "product.stock": {
+            $gt: 0,
+          },
+        },
+      },
+      {
+        $count: "count",
+      },
+    ]),
+
+    Wishlist.aggregate([
+      {
+        $lookup: {
+          from: "products",
+          localField: "productId",
+          foreignField: "_id",
+          as: "product",
+        },
+      },
+      {
+        $unwind: "$product",
+      },
+      {
+        $match: {
+          "product.isActive": true,
+          "product.isDeleted": false,
+          "product.stock": 0,
+        },
+      },
+      {
+        $count: "count",
+      },
+    ]),
+
+    Wishlist.aggregate([
+      {
+        $group: {
+          _id: "$productId",
+          wishlistCount: {
+            $sum: 1,
+          },
+        },
+      },
+      {
+        $sort: {
+          wishlistCount: -1,
+        },
+      },
+      {
+        $limit: 10,
+      },
+      {
+        $lookup: {
+          from: "products",
+          localField: "_id",
+          foreignField: "_id",
+          as: "product",
+        },
+      },
+      {
+        $unwind: "$product",
+      },
+      {
+        $match: {
+          "product.isDeleted": false,
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          productId: "$product._id",
+          productName: "$product.productName",
+          brand: "$product.brand",
+          price: "$product.price",
+          discountPrice: "$product.discountPrice",
+          stock: "$product.stock",
+          images: "$product.images",
+          wishlistCount: 1,
+        },
+      },
+    ]),
+
+    Wishlist.find()
+      .sort({
+        createdAt: -1,
+      })
+      .limit(10)
+      .populate("userId", "name email")
+      .populate(
+        "productId",
+        "productName brand price discountPrice stock images isActive isDeleted"
+      ),
+  ]);
+
+  res.status(200).json({
+    success: true,
+    message: "Wishlist dashboard fetched successfully",
+    dashboard: {
+      totalWishlistItems,
+      totalUsers: uniqueUsers.length,
+      totalUniqueProducts: uniqueProducts.length,
+      availableProducts: availableProducts[0]?.count || 0,
+      outOfStockProducts: outOfStockProducts[0]?.count || 0,
+      mostWishlistedProducts,
+      recentWishlistItems,
+    },
+  });
+});
