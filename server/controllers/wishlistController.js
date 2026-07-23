@@ -243,3 +243,21 @@ export const removeFromWishlist = asyncHandler(async (req, res) => {
     message: "Product removed from wishlist successfully",
   });
 });
+
+
+export const clearWishlist = asyncHandler(async (req, res) => {
+  const userId = req.user._id;
+
+  const result = await Wishlist.deleteMany({
+    userId,
+  });
+
+  res.status(200).json({
+    success: true,
+    message:
+      result.deletedCount > 0
+        ? "Wishlist cleared successfully"
+        : "Wishlist is already empty",
+    deletedItems: result.deletedCount,
+  });
+});
