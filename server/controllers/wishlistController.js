@@ -20,9 +20,7 @@ export const addToWishlist = asyncHandler(async (req, res) => {
   const product = await Product.findOne({
     _id: productId,
     isActive: true,
-    isDeleted: {
-      $ne: true,
-    },
+    isDeleted: false,
   });
 
   if (!product) {
@@ -62,10 +60,11 @@ export const addToWishlist = asyncHandler(async (req, res) => {
     throw error;
   }
 
-  await wishlistItem.populate(
-    "productId",
-    "productName price discountPrice images stock brand averageRating totalReviews"
-  );
+  await wishlistItem.populate({
+    path: "productId",
+    select:
+      "productName price discountPrice images stock brand averageRating totalReviews petType",
+  });
 
   res.status(201).json({
     success: true,
@@ -215,5 +214,32 @@ export const getMyWishlist = asyncHandler(async (req, res) => {
       hasNextPage: page < totalPages,
       hasPreviousPage: page > 1,
     },
+  });
+});
+
+
+export const removeFromWishlist = asyncHandler(async (req, res) => {
+  const userId = req.user._id;
+  const { productId } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(productId)) {
+    throw new ApiError(400, "Invalid product ID");
+  }
+
+  const wishlistItem = await Wishlist.findOneAndDelete({
+    userId,
+    productId,
+  });
+
+  if (!wishlistItem) {
+    throw new ApiError(
+      404,
+      "Product not found in your wishlist"
+    );
+  }
+
+  res.status(200).json({
+    success: true,
+    message: "Product removed from wishlist successfully",
   });
 });
