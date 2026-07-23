@@ -363,3 +363,73 @@ export const refundPayment = asyncHandler(async (req, res) => {
     },
   });
 });
+
+
+export const razorpayWebhook = asyncHandler(async (req, res) => {
+  const signature = req.headers["x-razorpay-signature"];
+
+  const expectedSignature = crypto
+    .createHmac(
+      "sha256",
+      process.env.RAZORPAY_WEBHOOK_SECRET
+    )
+    .update(req.body)
+    .digest("hex");
+
+  if (signature !== expectedSignature) {
+    return res.status(400).json({
+      success: false,
+      message: "Invalid webhook signature",
+    });
+  }
+
+  const event = JSON.parse(req.body.toString());
+
+  switch (event.event) {
+    case "payment.captured": {
+      const payment = event.payload.payment.entity;
+
+      const order = await Order.findOne({
+        razorpayOrderId: payment.order_id,
+      });
+
+      if (order) {
+        order.paymentStatus = "Paid";
+        order.orderStatus = "Confirmed";
+        order.razorpayPaymentId = payment.id;
+        order.paidAt = new Date();
+
+        await order.save();
+      }
+
+      break;
+    }
+
+    case "refund.processed": {
+      const refund = event.payload.refund.entity;
+
+      const order = await Order.findOne({
+        razorpayPaymentId: refund.payment_id,
+      });
+
+      if (order) {
+        order.paymentStatus = "Refunded";
+        order.refundId = refund.id;
+        order.refundAmount = refund.amount / 100;
+        order.refundedAt = new Date();
+
+        await order.save();
+      }
+
+      break;
+    }
+
+    default:
+      console.log("Unhandled event:", event.event);
+  }
+
+  res.status(200).json({
+    success: true,
+    message: "Webhook processed successfully",
+  });
+});

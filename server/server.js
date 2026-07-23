@@ -72,6 +72,11 @@ app.use(
   })
 );
 
+app.use(
+  "/api/payments/webhook",
+  express.raw({ type: "application/json" })
+);
+
 // Parse JSON data
 app.use(express.json());
 
