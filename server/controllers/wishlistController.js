@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import Wishlist from "../models/Wishlist.js";
 import Product from "../models/Product.js";
+import Cart from "../models/Cart.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import ApiError from "../utils/ApiError.js";
 
@@ -260,4 +261,111 @@ export const clearWishlist = asyncHandler(async (req, res) => {
         : "Wishlist is already empty",
     deletedItems: result.deletedCount,
   });
+});
+export const moveWishlistToCart = asyncHandler(async (req, res) => {
+  const userId = req.user._id;
+  const { productId } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(productId)) {
+    throw new ApiError(400, "Invalid product ID");
+  }
+
+  const session = await mongoose.startSession();
+
+  try {
+    await session.withTransaction(async () => {
+      // Check wishlist item
+      const wishlistItem = await Wishlist.findOne({
+        userId,
+        productId,
+      }).session(session);
+
+      if (!wishlistItem) {
+        throw new ApiError(404, "Product not found in wishlist");
+      }
+
+      // Check product
+      const product = await Product.findOne({
+        _id: productId,
+        isActive: true,
+        isDeleted: false,
+      }).session(session);
+
+      if (!product) {
+        throw new ApiError(404, "Product not found");
+      }
+
+      if (product.stock <= 0) {
+        throw new ApiError(400, "Product is out of stock");
+      }
+
+      // Find the user's single cart document
+      let cart = await Cart.findOne({ userId }).session(session);
+
+      if (!cart) {
+        cart = new Cart({
+          userId,
+          items: [],
+          totalItems: 0,
+          totalAmount: 0,
+        });
+      }
+
+      // Check whether the product already exists in the items array
+      const existingItem = cart.items.find(
+        (item) => item.productId.toString() === productId
+      );
+
+      if (existingItem) {
+        // Do not increase quantity beyond available stock
+        if (existingItem.quantity >= product.stock) {
+          throw new ApiError(
+            400,
+            `Only ${product.stock} item(s) available in stock`
+          );
+        }
+
+        existingItem.quantity += 1;
+        existingItem.totalPrice =
+          existingItem.quantity * existingItem.price;
+      } else {
+        const price = product.discountPrice ?? product.price;
+
+        cart.items.push({
+          productId: product._id,
+          quantity: 1,
+          price,
+          totalPrice: price,
+        });
+      }
+
+      // Recalculate cart totals
+      cart.totalItems = cart.items.reduce(
+        (total, item) => total + item.quantity,
+        0
+      );
+
+      cart.totalAmount = cart.items.reduce(
+        (total, item) => total + item.totalPrice,
+        0
+      );
+
+      await cart.save({ session });
+
+      // Remove product from wishlist
+      await Wishlist.deleteOne(
+        {
+          _id: wishlistItem._id,
+        },
+        { session }
+      );
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Product moved to cart successfully",
+    });
+  } finally {
+    await session.endSession();
+  }
 });

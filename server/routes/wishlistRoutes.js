@@ -1,7 +1,7 @@
 import express from "express";
 
 import {
-  addToWishlist,getMyWishlist, removeFromWishlist, clearWishlist,
+  addToWishlist,getMyWishlist, removeFromWishlist, clearWishlist,moveWishlistToCart,
 } from "../controllers/wishlistController.js";
 
 import {
@@ -14,7 +14,7 @@ router.post("/",protect,addToWishlist);
 router.get("/",protect, getMyWishlist);
 router.delete("/",protect, clearWishlist);
 
-
+router.post("/:productId/move-to-cart",protect, moveWishlistToCart);
 router.delete("/:productId",protect,removeFromWishlist);
 
 export default router;
