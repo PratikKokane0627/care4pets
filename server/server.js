@@ -25,6 +25,8 @@ import razorpay from "./config/razorpay.js";
 
 import { protect } from "./middleware/authMiddleware.js";
 import { authorize } from "./middleware/roleMiddleware.js";
+import path from "path";
+import { fileURLToPath } from "url";
 
 dotenv.config();
 
@@ -35,7 +37,29 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Security headers
-app.use(helmet());
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: [
+          "'self'",
+          "'unsafe-inline'",
+          "https://checkout.razorpay.com",
+        ],
+        frameSrc: [
+          "'self'",
+          "https://api.razorpay.com",
+          "https://checkout.razorpay.com",
+        ],
+        connectSrc: [
+          "'self'",
+          "https://api.razorpay.com",
+        ],
+      },
+    },
+  })
+);
 
 // Request logger
 app.use(morgan("dev"));
@@ -54,6 +78,10 @@ app.use(express.json());
 // Parse form data
 app.use(express.urlencoded({ extended: true }));
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+app.use(express.static(path.join(__dirname, "public")));
 // Health route
 app.get("/api/health", (req, res) => {
   res.status(200).json({

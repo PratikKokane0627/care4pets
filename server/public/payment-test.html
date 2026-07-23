@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  />
+  <title>Razorpay Test</title>
+</head>
+
+<body>
+  <h1>Care4Pets Payment Test</h1>
+
+  <button id="payButton">Pay Now</button>
+
+  <pre id="result"></pre>
+
+  <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+
+  <script>
+    const orderId = "6a60d0db7983a314f94449fd";
+    const token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjZhNTY1YjQ2ZDI0ZTkwYTQ5YTIwNWJkOSIsImlhdCI6MTc4NDgxMzU0MywiZXhwIjoxNzg1NDE4MzQzfQ.RlYMC_YISuJeJ7mjQ59Ylyoc1Q5qh4LY6sYAffh4nMM";
+
+    const result = document.getElementById("result");
+
+    document
+      .getElementById("payButton")
+      .addEventListener("click", async () => {
+        try {
+          // 1. Create Razorpay order
+          const createResponse = await fetch(
+            `http://localhost:5000/api/payments/create-order/${orderId}`,
+            {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({}),
+            }
+          );
+
+          const createData = await createResponse.json();
+
+          if (!createResponse.ok) {
+            throw new Error(createData.message);
+          }
+
+          const payment = createData.payment;
+
+          // 2. Open Razorpay Checkout
+          const options = {
+            key: payment.key,
+            amount: payment.amount,
+            currency: payment.currency,
+            name: "Care4Pets",
+            description: "Care4Pets Order Payment",
+            order_id: payment.razorpayOrderId,
+
+            handler: async function (response) {
+              result.textContent =
+                "Razorpay Response:\n" +
+                JSON.stringify(response, null, 2);
+
+              // 3. Verify payment
+              const verifyResponse = await fetch(
+                "http://localhost:5000/api/payments/verify-payment",
+                {
+                  method: "POST",
+                  headers: {
+                    Authorization: `Bearer ${token}`,
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({
+                    razorpay_order_id:
+                      response.razorpay_order_id,
+
+                    razorpay_payment_id:
+                      response.razorpay_payment_id,
+
+                    razorpay_signature:
+                      response.razorpay_signature,
+                  }),
+                }
+              );
+
+              const verifyData =
+                await verifyResponse.json();
+
+              result.textContent +=
+                "\n\nVerification Response:\n" +
+                JSON.stringify(verifyData, null, 2);
+            },
+
+            prefill: {
+              name: "Pratik Kokane",
+              email: "test@example.com",
+              contact: "9999999999",
+            },
+
+            theme: {
+              color: "#3399cc",
+            },
+          };
+
+          const razorpay = new Razorpay(options);
+          razorpay.open();
+        } catch (error) {
+          result.textContent = error.message;
+        }
+      });
+  </script>
+</body>
+</html>
