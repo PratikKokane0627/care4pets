@@ -278,3 +278,36 @@ export const paymentFailure = asyncHandler(async (req, res) => {
     },
   });
 });
+export const getPaymentHistory = asyncHandler(async (req, res) => {
+  const userId = req.user._id;
+
+  const page = Number(req.query.page) || 1;
+  const limit = Number(req.query.limit) || 10;
+
+  const skip = (page - 1) * limit;
+
+  const totalPayments = await Order.countDocuments({
+    userId,
+    paymentStatus: {
+      $in: ["Paid", "Failed", "Refunded"],
+    },
+  });
+
+  const payments = await Order.find({
+    userId,
+    paymentStatus: {
+      $in: ["Paid", "Failed", "Refunded"],
+    },
+  })
+    .sort({ createdAt: -1 })
+    .skip(skip)
+    .limit(limit);
+
+  res.status(200).json({
+    success: true,
+    currentPage: page,
+    totalPages: Math.ceil(totalPayments / limit),
+    totalPayments,
+    payments,
+  });
+});
