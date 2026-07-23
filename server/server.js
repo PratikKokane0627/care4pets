@@ -18,8 +18,10 @@ import cartRoutes from "./routes/cartRoutes.js";
 import orderRoutes from "./routes/orderRoutes.js";
 import reviewRoutes from "./routes/reviewRoutes.js";
 import wishlistRoutes from "./routes/wishlistRoutes.js";
+import paymentRoutes from "./routes/paymentRoutes.js";
 import errorMiddleware from "./middleware/errorMiddleware.js";
 import ApiError from "./utils/ApiError.js";
+import razorpay from "./config/razorpay.js";
 
 import { protect } from "./middleware/authMiddleware.js";
 import { authorize } from "./middleware/roleMiddleware.js";
@@ -60,6 +62,7 @@ app.get("/api/health", (req, res) => {
   });
 });
 
+
 // API routes
 app.use("/api/auth", authRoutes);
 app.use("/api/pets", petRoutes);
@@ -74,6 +77,7 @@ app.use("/api/cart", cartRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/reviews",reviewRoutes);
 app.use("/api/wishlist",wishlistRoutes);
+app.use("/api/payments", paymentRoutes);
 
 // 404 middleware
 app.use((req, res, next) => {

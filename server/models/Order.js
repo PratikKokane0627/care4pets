@@ -11,6 +11,7 @@ const orderItemSchema = new mongoose.Schema(
     productName: {
       type: String,
       required: true,
+      trim: true,
     },
 
     image: {
@@ -21,17 +22,19 @@ const orderItemSchema = new mongoose.Schema(
     quantity: {
       type: Number,
       required: true,
-      min: 1,
+      min: [1, "Quantity must be at least 1"],
     },
 
     price: {
       type: Number,
       required: true,
+      min: [0, "Price cannot be negative"],
     },
 
     totalPrice: {
       type: Number,
       required: true,
+      min: [0, "Total price cannot be negative"],
     },
   },
   {
@@ -43,37 +46,37 @@ const shippingAddressSchema = new mongoose.Schema(
   {
     fullName: {
       type: String,
-      required: true,
+      required: [true, "Full name is required"],
       trim: true,
     },
 
     phone: {
       type: String,
-      required: true,
+      required: [true, "Phone number is required"],
       trim: true,
     },
 
     address: {
       type: String,
-      required: true,
+      required: [true, "Address is required"],
       trim: true,
     },
 
     city: {
       type: String,
-      required: true,
+      required: [true, "City is required"],
       trim: true,
     },
 
     state: {
       type: String,
-      required: true,
+      required: [true, "State is required"],
       trim: true,
     },
 
     postalCode: {
       type: String,
-      required: true,
+      required: [true, "Postal code is required"],
       trim: true,
     },
 
@@ -97,33 +100,50 @@ const orderSchema = new mongoose.Schema(
       required: true,
     },
 
-    items: [orderItemSchema],
+    items: {
+      type: [orderItemSchema],
+      required: true,
+      validate: {
+        validator(items) {
+          return Array.isArray(items) && items.length > 0;
+        },
+        message: "Order must contain at least one item",
+      },
+    },
 
-    shippingAddress: shippingAddressSchema,
+    shippingAddress: {
+      type: shippingAddressSchema,
+      required: true,
+    },
 
     totalItems: {
       type: Number,
       required: true,
+      min: [1, "Total items must be at least 1"],
     },
 
     subtotal: {
       type: Number,
       required: true,
+      min: [0, "Subtotal cannot be negative"],
     },
 
     shippingCharge: {
       type: Number,
       default: 0,
+      min: [0, "Shipping charge cannot be negative"],
     },
 
     tax: {
       type: Number,
       default: 0,
+      min: [0, "Tax cannot be negative"],
     },
 
     totalAmount: {
       type: Number,
       required: true,
+      min: [0, "Total amount cannot be negative"],
     },
 
     paymentMethod: {
@@ -136,6 +156,54 @@ const orderSchema = new mongoose.Schema(
       type: String,
       enum: ["Pending", "Paid", "Failed", "Refunded"],
       default: "Pending",
+    },
+
+    razorpayOrderId: {
+      type: String,
+      default: null,
+    },
+
+    razorpayPaymentId: {
+      type: String,
+      default: null,
+    },
+
+    razorpaySignature: {
+      type: String,
+      default: null,
+      select: false,
+    },
+
+    paidAt: {
+      type: Date,
+      default: null,
+    },
+
+    failedAt: {
+      type: Date,
+      default: null,
+    },
+
+    refundedAt: {
+      type: Date,
+      default: null,
+    },
+
+    refundId: {
+      type: String,
+      default: null,
+    },
+
+    refundAmount: {
+      type: Number,
+      default: 0,
+      min: [0, "Refund amount cannot be negative"],
+    },
+
+    paymentFailureReason: {
+      type: String,
+      default: null,
+      trim: true,
     },
 
     orderStatus: {
@@ -152,21 +220,83 @@ const orderSchema = new mongoose.Schema(
       default: "Pending",
     },
 
-    deliveredAt: Date,
+    deliveredAt: {
+      type: Date,
+      default: null,
+    },
 
-    cancelledAt: Date,
+    cancelledAt: {
+      type: Date,
+      default: null,
+    },
+
+    cancellationReason: {
+      type: String,
+      default: null,
+      trim: true,
+    },
   },
   {
     timestamps: true,
   }
 );
 
-orderSchema.index({ userId: 1 });
+orderSchema.pre("validate", function () {
+  if (!this.items || this.items.length === 0) {
+    return;
+  }
 
-orderSchema.index({ orderStatus: 1 });
+  this.totalItems = this.items.reduce(
+    (sum, item) => sum + item.quantity,
+    0
+  );
 
-orderSchema.index({ paymentStatus: 1 });
+  this.subtotal = this.items.reduce(
+    (sum, item) => sum + item.totalPrice,
+    0
+  );
 
-orderSchema.index({ createdAt: -1 });
+  this.totalAmount =
+    this.subtotal +
+    (this.shippingCharge || 0) +
+    (this.tax || 0);
+});
 
-export default mongoose.model("Order", orderSchema);
+orderSchema.index({
+  userId: 1,
+  createdAt: -1,
+});
+
+orderSchema.index({
+  orderStatus: 1,
+  createdAt: -1,
+});
+
+orderSchema.index({
+  paymentStatus: 1,
+  paymentMethod: 1,
+});
+
+orderSchema.index(
+  {
+    razorpayOrderId: 1,
+  },
+  {
+    unique: true,
+    sparse: true,
+  }
+);
+
+orderSchema.index(
+  {
+    razorpayPaymentId: 1,
+  },
+  {
+    unique: true,
+    sparse: true,
+  }
+);
+
+const Order = mongoose.model("Order", orderSchema);
+
+export default Order;
