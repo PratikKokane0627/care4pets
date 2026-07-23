@@ -17,6 +17,7 @@ import productRoutes from "./routes/productRoutes.js";
 import cartRoutes from "./routes/cartRoutes.js";
 import orderRoutes from "./routes/orderRoutes.js";
 import reviewRoutes from "./routes/reviewRoutes.js";
+import wishlistRoutes from "./routes/wishlistRoutes.js";
 import errorMiddleware from "./middleware/errorMiddleware.js";
 import ApiError from "./utils/ApiError.js";
 
@@ -72,6 +73,7 @@ app.use("/api/products", productRoutes);
 app.use("/api/cart", cartRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/reviews",reviewRoutes);
+app.use("/api/wishlist",wishlistRoutes);
 
 // 404 middleware
 app.use((req, res, next) => {
