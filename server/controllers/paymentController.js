@@ -5,6 +5,7 @@ import ApiError from "../utils/ApiError.js";
 import mongoose from "mongoose";
 import crypto from "crypto";
 import razorpay from "../config/razorpay.js";
+import Notification from "../models/notificationModel.js";
 
 export const createPaymentOrder = asyncHandler(async (req, res) => {
   const { orderId } = req.params;
@@ -108,10 +109,15 @@ export const verifyPayment = asyncHandler(async (req, res) => {
   }
 
   if (order.paymentStatus === "Paid") {
-    throw new ApiError(
-      400,
-      "Payment already verified"
-    );
+    return res.status(200).json({
+      success: true,
+      message: "Payment already verified",
+      payment: {
+        orderId: order._id,
+        paymentStatus: order.paymentStatus,
+        orderStatus: order.orderStatus,
+      },
+    });
   }
 
   // Generate Signature
@@ -135,6 +141,15 @@ export const verifyPayment = asyncHandler(async (req, res) => {
 
     await order.save();
 
+    await Notification.create({
+      userId: order.userId,
+      title: "Payment Failed",
+      message: order.paymentFailureReason,
+      type: "Payment",
+      referenceId: order._id,
+      referenceModel: "Order",
+    });
+
     throw new ApiError(
       400,
       "Invalid payment signature"
@@ -150,6 +165,15 @@ export const verifyPayment = asyncHandler(async (req, res) => {
   order.paidAt = new Date();
 
   await order.save();
+
+  await Notification.create({
+    userId: order.userId,
+    title: "Payment Successful",
+    message: `Your payment of \u20b9${order.totalAmount} was completed successfully.`,
+    type: "Payment",
+    referenceId: order._id,
+    referenceModel: "Order",
+  });
 
   res.status(200).json({
     success: true,
@@ -261,6 +285,17 @@ export const paymentFailure = asyncHandler(async (req, res) => {
 
   await order.save();
 
+  await Notification.create({
+    userId: order.userId,
+    title: "Payment Failed",
+    message:
+      order.paymentFailureReason ||
+      "Your payment could not be completed.",
+    type: "Payment",
+    referenceId: order._id,
+    referenceModel: "Order",
+  });
+
   res.status(200).json({
     success: true,
     message: "Payment failure recorded successfully",
@@ -351,6 +386,15 @@ export const refundPayment = asyncHandler(async (req, res) => {
   order.refundedAt = new Date();
 
   await order.save();
+
+  await Notification.create({
+    userId: order.userId,
+    title: "Payment Refunded",
+    message: `Your refund of \u20b9${order.refundAmount} has been processed successfully.`,
+    type: "Payment",
+    referenceId: order._id,
+    referenceModel: "Order",
+  });
 
   res.status(200).json({
     success: true,

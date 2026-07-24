@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import GroomingBooking from "../models/GroomingBooking.js";
 import GroomingService from "../models/GroomingService.js";
 import Pet from "../models/Pet.js";
+import Notification from "../models/notificationModel.js";
 
 import asyncHandler from "../utils/asyncHandler.js";
 import ApiError from "../utils/ApiError.js";
@@ -117,6 +118,15 @@ export const createGroomingBooking = asyncHandler(
       duration: service.duration,
       specialInstructions:
         specialInstructions?.trim() || "",
+    });
+
+    await Notification.create({
+      userId: req.user._id,
+      title: "Grooming Booked",
+      message: "Your grooming service was booked successfully.",
+      type: "Grooming",
+      referenceId: booking._id,
+      referenceModel: "GroomingBooking",
     });
 
     const populatedBooking =
@@ -438,6 +448,15 @@ export const acceptGroomingBooking = asyncHandler(async (req, res) => {
 
   await booking.save();
 
+  await Notification.create({
+    userId: booking.ownerId,
+    title: "Grooming Status Updated",
+    message: `Your grooming booking status is now ${booking.status}.`,
+    type: "Grooming",
+    referenceId: booking._id,
+    referenceModel: "GroomingBooking",
+  });
+
   const updatedBooking = await GroomingBooking.findById(booking._id)
     .populate("ownerId", "name email phone")
     .populate(
@@ -497,6 +516,15 @@ export const rejectGroomingBooking = asyncHandler(async (req, res) => {
     rejectionReason?.trim() || "Rejected by groomer";
 
   await booking.save();
+
+  await Notification.create({
+    userId: booking.ownerId,
+    title: "Grooming Status Updated",
+    message: `Your grooming booking status is now ${booking.status}.`,
+    type: "Grooming",
+    referenceId: booking._id,
+    referenceModel: "GroomingBooking",
+  });
 
   const updatedBooking = await GroomingBooking.findById(
     booking._id
@@ -562,6 +590,15 @@ export const completeGroomingBooking = asyncHandler(async (req, res) => {
   booking.completedAt = new Date();
 
   await booking.save();
+
+  await Notification.create({
+    userId: booking.ownerId,
+    title: "Grooming Status Updated",
+    message: `Your grooming booking status is now ${booking.status}.`,
+    type: "Grooming",
+    referenceId: booking._id,
+    referenceModel: "GroomingBooking",
+  });
 
   const updatedBooking = await GroomingBooking.findById(booking._id)
     .populate("ownerId", "name email phone")

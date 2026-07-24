@@ -19,6 +19,7 @@ import orderRoutes from "./routes/orderRoutes.js";
 import reviewRoutes from "./routes/reviewRoutes.js";
 import wishlistRoutes from "./routes/wishlistRoutes.js";
 import paymentRoutes from "./routes/paymentRoutes.js";
+import notificationRoutes from "./routes/notificationRoutes.js";
 import errorMiddleware from "./middleware/errorMiddleware.js";
 import ApiError from "./utils/ApiError.js";
 import razorpay from "./config/razorpay.js";
@@ -111,6 +112,7 @@ app.use("/api/orders", orderRoutes);
 app.use("/api/reviews",reviewRoutes);
 app.use("/api/wishlist",wishlistRoutes);
 app.use("/api/payments", paymentRoutes);
+app.use("/api/notifications",notificationRoutes);
 
 // 404 middleware
 app.use((req, res, next) => {
