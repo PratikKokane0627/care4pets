@@ -66,7 +66,7 @@ const Navbar = () => {
                         About
                     </NavLink>
 
-                    <a
+                    {/* <a
                         href="#features"
                         className="text-slate-300 transition hover:text-white"
                     >
@@ -93,7 +93,7 @@ const Navbar = () => {
                         className="text-slate-300 transition hover:text-white"
                     >
                         FAQ
-                    </a>
+                    </a> */}
                     <NavLink to="/contact" className={navLinkClass}>
                         Contact
                     </NavLink>
@@ -153,7 +153,7 @@ const Navbar = () => {
                             About
                         </NavLink>
 
-                        <a
+                        {/* <a
                             href="#features"
                             onClick={closeMenu}
                             className="text-slate-300"
@@ -184,7 +184,7 @@ const Navbar = () => {
                             className="text-slate-300"
                         >
                             FAQ
-                        </a>
+                        </a> */}
                         <NavLink
                             to="/contact"
                             onClick={closeMenu}
