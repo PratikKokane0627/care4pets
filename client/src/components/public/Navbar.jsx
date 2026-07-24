@@ -30,16 +30,18 @@ const Navbar = () => {
         setMenuOpen(false);
     };
 
-    const navLinkClass = ({ isActive }) =>
+const navLinkClass = ({ isActive }) =>
+    `font-medium transition-colors duration-200 ${
         isActive
-            ? "text-cyan-400"
-            : "text-slate-300 transition hover:text-white";
+            ? "!text-[#00d9ff]"
+            : "!text-slate-400 hover:!text-white"
+    }`;
 
     return (
         <header className="sticky top-0 z-50 border-b border-white/10 bg-[#030712]/90 backdrop-blur-xl">
             <nav className="mx-auto flex max-w-7xl items-center justify-between px-5 py-4 lg:px-8">
                 <NavLink
-                    to="/"
+                    to="/" 
                     onClick={closeMenu}
                     className="flex items-center gap-2"
                 >
@@ -59,7 +61,7 @@ const Navbar = () => {
                 </NavLink>
 
                 <div className="hidden items-center gap-7 lg:flex">
-                    <NavLink to="/" className={navLinkClass}>
+                    <NavLink to="/" end className={navLinkClass}>
                         Home
                     </NavLink>
                     <NavLink to="/about" className={navLinkClass}>
@@ -139,7 +141,7 @@ const Navbar = () => {
                 <div className="border-t border-white/10 bg-[#060b18] px-5 py-5 lg:hidden">
                     <div className="flex flex-col gap-5">
                         <NavLink
-                            to="/"
+                            to="/" end
                             onClick={closeMenu}
                             className={navLinkClass}
                         >
