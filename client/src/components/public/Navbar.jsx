@@ -1,3 +1,17 @@
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 import { useState } from "react";
 import { NavLink } from "react-router-dom";
 import {
@@ -48,6 +62,9 @@ const Navbar = () => {
                     <NavLink to="/" className={navLinkClass}>
                         Home
                     </NavLink>
+                    <NavLink to="/about" className={navLinkClass}>
+                        About
+                    </NavLink>
 
                     <a
                         href="#features"
@@ -70,19 +87,16 @@ const Navbar = () => {
                         Community
                     </a>
 
-                    
+
                     <a
                         href="#faq"
                         className="text-slate-300 transition hover:text-white"
                     >
                         FAQ
                     </a>
-                    <a
-                        href="#contact"
-                        className="text-slate-300 transition hover:text-white"
-                    >
+                    <NavLink to="/contact" className={navLinkClass}>
                         Contact
-                    </a>
+                    </NavLink>
                 </div>
 
                 <div className="hidden items-center gap-3 lg:flex">
@@ -131,6 +145,13 @@ const Navbar = () => {
                         >
                             Home
                         </NavLink>
+                        <NavLink
+                            to="/about"
+                            onClick={closeMenu}
+                            className={navLinkClass}
+                        >
+                            About
+                        </NavLink>
 
                         <a
                             href="#features"
@@ -156,7 +177,7 @@ const Navbar = () => {
                             Community
                         </a>
 
-                      
+
                         <a
                             href="#faq"
                             onClick={closeMenu}
@@ -164,13 +185,13 @@ const Navbar = () => {
                         >
                             FAQ
                         </a>
-                          <a
-                            href="#contact"
+                        <NavLink
+                            to="/contact"
                             onClick={closeMenu}
-                            className="text-slate-300"
+                            className={navLinkClass}
                         >
                             Contact
-                        </a>
+                        </NavLink>
 
                         <NavLink
                             to="/login"

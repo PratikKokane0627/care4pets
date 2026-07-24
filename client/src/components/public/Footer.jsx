@@ -4,6 +4,7 @@ import {
   FaPaw,
   FaTwitter,
 } from "react-icons/fa";
+import { Link } from "react-router-dom";
 
 const Footer = () => {
   return (
@@ -65,9 +66,9 @@ const Footer = () => {
               Terms
             </a>
 
-            <a href="#contact" className="hover:text-white">
+            <Link to="/contact" className="hover:text-white">
               Support
-            </a>
+            </Link>
           </div>
         </div>
       </div>
