@@ -4,9 +4,51 @@ import GroomingBooking from "../models/GroomingBooking.js";
 import GroomingService from "../models/GroomingService.js";
 import Pet from "../models/Pet.js";
 import Notification from "../models/notificationModel.js";
+import User from "../models/User.js";
 
 import asyncHandler from "../utils/asyncHandler.js";
 import ApiError from "../utils/ApiError.js";
+
+export const assignGroomer = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { groomerId } = req.body;
+  if (!mongoose.Types.ObjectId.isValid(id) || !mongoose.Types.ObjectId.isValid(groomerId)) {
+    throw new ApiError(400, "Valid booking and groomer IDs are required");
+  }
+
+  const [booking, groomer] = await Promise.all([
+    GroomingBooking.findOne({ _id: id, isActive: true }),
+    User.findOne({ _id: groomerId, role: "groomer", status: "active", isVerified: true }),
+  ]);
+  if (!booking) throw new ApiError(404, "Grooming booking not found");
+  if (!groomer) throw new ApiError(404, "Active groomer not found");
+  if (!["pending", "accepted"].includes(booking.status)) {
+    throw new ApiError(400, `Cannot assign a ${booking.status} booking`);
+  }
+
+  const conflict = await GroomingBooking.exists({
+    _id: { $ne: booking._id },
+    groomerId: groomer._id,
+    bookingDate: booking.bookingDate,
+    bookingTime: booking.bookingTime,
+    status: { $in: ["pending", "accepted"] },
+    isActive: true,
+  });
+  if (conflict) throw new ApiError(409, "Groomer already has a booking in this slot");
+
+  booking.groomerId = groomer._id;
+  await booking.save();
+  await Notification.create({
+    userId: groomer._id,
+    title: "Grooming Booking Assigned",
+    message: "A grooming booking has been assigned to you.",
+    type: "Grooming",
+    referenceId: booking._id,
+    referenceModel: "GroomingBooking",
+  });
+
+  res.json({ success: true, message: "Groomer assigned successfully", booking });
+});
 
 export const createGroomingBooking = asyncHandler(
   async (req, res) => {

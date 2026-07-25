@@ -25,13 +25,20 @@ export const protect = asyncHandler(async (req, res, next) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
     // 4. Find logged-in user
-    const user = await User.findById(decoded.id);
+    const user = await User.findById(decoded.id).select("+passwordChangedAt");
 
     if (!user) {
       throw new ApiError(
         401,
         "User associated with this token no longer exists"
       );
+    }
+
+    if (
+      user.passwordChangedAt &&
+      decoded.iat < Math.floor(user.passwordChangedAt.getTime() / 1000)
+    ) {
+      throw new ApiError(401, "Password changed recently. Please login again");
     }
 
     // 5. Check account status
@@ -55,6 +62,10 @@ export const protect = asyncHandler(async (req, res, next) => {
         403,
         "Your account application has been rejected"
       );
+    }
+
+    if (!user.isVerified) {
+      throw new ApiError(403, "Verify your email before accessing this resource");
     }
 
     // 6. Attach user to request

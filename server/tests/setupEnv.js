@@ -1,0 +1,10 @@
+process.env.NODE_ENV = "test";
+process.env.JWT_SECRET = "test-jwt-secret-that-is-long-enough";
+process.env.JWT_EXPIRE = "1h";
+process.env.CLIENT_URL = "http://localhost:5173";
+process.env.RAZORPAY_KEY_ID = "rzp_test_key";
+process.env.RAZORPAY_KEY_SECRET = "test-payment-secret";
+process.env.RAZORPAY_WEBHOOK_SECRET = "test-webhook-secret";
+process.env.CLOUDINARY_CLOUD_NAME = "test";
+process.env.CLOUDINARY_API_KEY = "test";
+process.env.CLOUDINARY_API_SECRET = "test";

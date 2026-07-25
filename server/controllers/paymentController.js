@@ -6,6 +6,8 @@ import mongoose from "mongoose";
 import crypto from "crypto";
 import razorpay from "../config/razorpay.js";
 import Notification from "../models/notificationModel.js";
+import Appointment from "../models/Appointment.js";
+import GroomingBooking from "../models/GroomingBooking.js";
 
 export const createPaymentOrder = asyncHandler(async (req, res) => {
   const { orderId } = req.params;
@@ -194,8 +196,7 @@ export const getPaymentSuccess = asyncHandler(async (req, res) => {
   const userId = req.user._id;
 
   if (!mongoose.Types.ObjectId.isValid(orderId)) {
-    res.status(400);
-    throw new Error("Invalid order ID");
+    throw new ApiError(400, "Invalid order ID");
   }
 
   const order = await Order.findOne({
@@ -218,13 +219,11 @@ export const getPaymentSuccess = asyncHandler(async (req, res) => {
     .lean();
 
   if (!order) {
-    res.status(404);
-    throw new Error("Order not found");
+    throw new ApiError(404, "Order not found");
   }
 
   if (order.paymentStatus !== "Paid") {
-    res.status(400);
-    throw new Error("Payment has not been completed");
+    throw new ApiError(400, "Payment has not been completed");
   }
 
   res.status(200).json({
@@ -256,8 +255,7 @@ export const paymentFailure = asyncHandler(async (req, res) => {
   } = req.body || {};
 
   if (!razorpay_order_id) {
-    res.status(400);
-    throw new Error("Razorpay order ID is required");
+    throw new ApiError(400, "Razorpay order ID is required");
   }
 
   const order = await Order.findOne({
@@ -266,13 +264,11 @@ export const paymentFailure = asyncHandler(async (req, res) => {
   });
 
   if (!order) {
-    res.status(404);
-    throw new Error("Order not found");
+    throw new ApiError(404, "Order not found");
   }
 
   if (order.paymentStatus === "Paid") {
-    res.status(400);
-    throw new Error("Payment is already completed");
+    throw new ApiError(400, "Payment is already completed");
   }
 
   order.paymentStatus = "Failed";
@@ -352,25 +348,21 @@ export const refundPayment = asyncHandler(async (req, res) => {
   const { orderId } = req.params;
 
   if (!mongoose.Types.ObjectId.isValid(orderId)) {
-    res.status(400);
-    throw new Error("Invalid order ID");
+    throw new ApiError(400, "Invalid order ID");
   }
 
   const order = await Order.findById(orderId);
 
   if (!order) {
-    res.status(404);
-    throw new Error("Order not found");
+    throw new ApiError(404, "Order not found");
   }
 
   if (order.paymentStatus !== "Paid") {
-    res.status(400);
-    throw new Error("Only paid orders can be refunded");
+    throw new ApiError(400, "Only paid orders can be refunded");
   }
 
   if (!order.razorpayPaymentId) {
-    res.status(400);
-    throw new Error("Razorpay payment ID not found");
+    throw new ApiError(400, "Razorpay payment ID not found");
   }
 
   const refund = await razorpay.payments.refund(
@@ -411,6 +403,9 @@ export const refundPayment = asyncHandler(async (req, res) => {
 
 export const razorpayWebhook = asyncHandler(async (req, res) => {
   const signature = req.headers["x-razorpay-signature"];
+  if (!signature || !Buffer.isBuffer(req.body)) {
+    throw new ApiError(400, "Webhook signature and raw body are required");
+  }
 
   const expectedSignature = crypto
     .createHmac(
@@ -444,6 +439,16 @@ export const razorpayWebhook = asyncHandler(async (req, res) => {
         order.paidAt = new Date();
 
         await order.save();
+      } else {
+        const serviceRecord =
+          (await Appointment.findOne({ razorpayOrderId: payment.order_id })) ||
+          (await GroomingBooking.findOne({ razorpayOrderId: payment.order_id }));
+        if (serviceRecord) {
+          serviceRecord.paymentStatus = "paid";
+          serviceRecord.razorpayPaymentId = payment.id;
+          serviceRecord.paidAt = new Date();
+          await serviceRecord.save();
+        }
       }
 
       break;
@@ -463,13 +468,21 @@ export const razorpayWebhook = asyncHandler(async (req, res) => {
         order.refundedAt = new Date();
 
         await order.save();
+      } else {
+        const serviceRecord =
+          (await Appointment.findOne({ razorpayPaymentId: refund.payment_id })) ||
+          (await GroomingBooking.findOne({ razorpayPaymentId: refund.payment_id }));
+        if (serviceRecord) {
+          serviceRecord.paymentStatus = "refunded";
+          await serviceRecord.save();
+        }
       }
 
       break;
     }
 
     default:
-      console.log("Unhandled event:", event.event);
+      break;
   }
 
   res.status(200).json({

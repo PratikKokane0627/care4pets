@@ -1,126 +1,13 @@
-import express from "express";
-import cors from "cors";
-import dotenv from "dotenv";
-import helmet from "helmet";
-import morgan from "morgan";
+import "dotenv/config";
 
+import app from "./app.js";
 import connectDB from "./config/db.js";
-import authRoutes from "./routes/authRoutes.js";
-import petRoutes from "./routes/petRoutes.js";
-import vetRoutes from "./routes/vetRoutes.js";
-import appointmentRoutes from "./routes/appointmentRoutes.js";
-import vaccinationRoutes from "./routes/vaccinationRoutes.js";
-import groomingServiceRoutes from "./routes/groomingServiceRoutes.js";
-import groomingBookingRoutes from "./routes/groomingBookingRoutes.js";
-import categoryRoutes from "./routes/categoryRoutes.js";
-import productRoutes from "./routes/productRoutes.js";
-import cartRoutes from "./routes/cartRoutes.js";
-import orderRoutes from "./routes/orderRoutes.js";
-import reviewRoutes from "./routes/reviewRoutes.js";
-import wishlistRoutes from "./routes/wishlistRoutes.js";
-import paymentRoutes from "./routes/paymentRoutes.js";
-import notificationRoutes from "./routes/notificationRoutes.js";
-import errorMiddleware from "./middleware/errorMiddleware.js";
-import ApiError from "./utils/ApiError.js";
-import razorpay from "./config/razorpay.js";
-
-import { protect } from "./middleware/authMiddleware.js";
-import { authorize } from "./middleware/roleMiddleware.js";
-import path from "path";
-import { fileURLToPath } from "url";
-
-dotenv.config();
-
-connectDB();
-
-const app = express();
+import validateEnv from "./config/validateEnv.js";
 
 const PORT = process.env.PORT || 5000;
 
-// Security headers
-app.use(
-  helmet({
-    contentSecurityPolicy: {
-      directives: {
-        defaultSrc: ["'self'"],
-        scriptSrc: [
-          "'self'",
-          "'unsafe-inline'",
-          "https://checkout.razorpay.com",
-        ],
-        frameSrc: [
-          "'self'",
-          "https://api.razorpay.com",
-          "https://checkout.razorpay.com",
-        ],
-        connectSrc: [
-          "'self'",
-          "https://api.razorpay.com",
-        ],
-      },
-    },
-  })
-);
-
-// Request logger
-app.use(morgan("dev"));
-
-// CORS
-app.use(
-  cors({
-    origin: process.env.CLIENT_URL || "http://localhost:5173",
-    credentials: true,
-  })
-);
-
-app.use(
-  "/api/payments/webhook",
-  express.raw({ type: "application/json" })
-);
-
-// Parse JSON data
-app.use(express.json());
-
-// Parse form data
-app.use(express.urlencoded({ extended: true }));
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-app.use(express.static(path.join(__dirname, "public")));
-// Health route
-app.get("/api/health", (req, res) => {
-  res.status(200).json({
-    success: true,
-    message: "Care4Pets API is running",
-  });
-});
-
-
-// API routes
-app.use("/api/auth", authRoutes);
-app.use("/api/pets", petRoutes);
-app.use("/api/vets", vetRoutes);
-app.use("/api/appointments", appointmentRoutes);
-app.use("/api/vaccinations", vaccinationRoutes);
-app.use("/api/grooming-services",groomingServiceRoutes);
-app.use("/api/grooming-bookings",groomingBookingRoutes);
-app.use("/api/categories", categoryRoutes);
-app.use("/api/products", productRoutes);
-app.use("/api/cart", cartRoutes);
-app.use("/api/orders", orderRoutes);
-app.use("/api/reviews",reviewRoutes);
-app.use("/api/wishlist",wishlistRoutes);
-app.use("/api/payments", paymentRoutes);
-app.use("/api/notifications",notificationRoutes);
-
-// 404 middleware
-app.use((req, res, next) => {
-  next(new ApiError(404, `Route not found: ${req.originalUrl}`));
-});
-
-// Global error middleware — always last
-app.use(errorMiddleware);
+validateEnv();
+await connectDB();
 
 app.listen(PORT, () => {
   console.log(`Care4Pets server running on port ${PORT}`);

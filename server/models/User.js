@@ -46,6 +46,12 @@ const userSchema = new mongoose.Schema(
       default: "",
     },
 
+    profileImagePublicId: {
+      type: String,
+      default: "",
+      select: false,
+    },
+
     address: {
       street: {
         type: String,
@@ -92,6 +98,34 @@ const userSchema = new mongoose.Schema(
 
     resetPasswordExpire: {
       type: Date,
+      select: false,
+    },
+
+    otpToken: {
+      type: String,
+      select: false,
+    },
+
+    otpExpire: {
+      type: Date,
+      select: false,
+    },
+
+    otpAttempts: {
+      type: Number,
+      default: 0,
+      select: false,
+    },
+
+    otpLastSentAt: {
+      type: Date,
+      default: null,
+      select: false,
+    },
+
+    passwordChangedAt: {
+      type: Date,
+      default: null,
       select: false,
     },
 

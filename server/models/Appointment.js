@@ -91,9 +91,15 @@ const appointmentSchema = new mongoose.Schema(
         "pending",
         "paid",
         "failed",
+        "refunded",
       ],
       default: "pending",
     },
+
+    razorpayOrderId: { type: String, default: null },
+    razorpayPaymentId: { type: String, default: null },
+    paidAt: { type: Date, default: null },
+    failedAt: { type: Date, default: null },
 
     isActive: {
       type: Boolean,

@@ -96,6 +96,11 @@ const groomingBookingSchema = new mongoose.Schema(
       default: "pending",
     },
 
+    razorpayOrderId: { type: String, default: null },
+    razorpayPaymentId: { type: String, default: null },
+    paidAt: { type: Date, default: null },
+    failedAt: { type: Date, default: null },
+
     isActive: {
       type: Boolean,
       default: true,

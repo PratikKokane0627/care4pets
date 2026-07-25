@@ -7,6 +7,97 @@ import VetProfile from "../models/VetProfile.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import ApiError from "../utils/ApiError.js";
 
+const normalizeAvailability = (availability = []) => {
+  if (!Array.isArray(availability)) {
+    throw new ApiError(400, "Availability must be an array");
+  }
+
+  return availability.map((slot) => ({
+    day: slot.day,
+    startTime: slot.startTime,
+    endTime: slot.endTime,
+    isAvailable: slot.isAvailable ?? true,
+  }));
+};
+
+export const applyAsVet = asyncHandler(async (req, res) => {
+  const {
+    name,
+    email,
+    phone,
+    password,
+    qualification,
+    specialization,
+    experience,
+    registrationNumber,
+    clinicName,
+    clinicAddress,
+    consultationFee,
+    about,
+    availability,
+  } = req.body;
+
+  if (
+    !name || !email || !phone || !password || !qualification ||
+    !specialization || experience === undefined || !registrationNumber ||
+    !clinicName || !clinicAddress?.city || !clinicAddress?.state ||
+    consultationFee === undefined
+  ) {
+    throw new ApiError(400, "All required veterinarian fields must be provided");
+  }
+  if (password.length < 8) {
+    throw new ApiError(400, "Password must contain at least 8 characters");
+  }
+
+  const normalizedEmail = email.toLowerCase().trim();
+  if (await User.exists({ email: normalizedEmail })) {
+    throw new ApiError(409, "User with this email already exists");
+  }
+  if (await VetProfile.exists({ registrationNumber: registrationNumber.trim() })) {
+    throw new ApiError(409, "Veterinarian registration number already exists");
+  }
+
+  const vetUser = await User.create({
+    name: name.trim(),
+    email: normalizedEmail,
+    phone,
+    password: await bcrypt.hash(password, 10),
+    role: "vet",
+    status: "pending",
+    isVerified: false,
+  });
+
+  try {
+    const vet = await VetProfile.create({
+      userId: vetUser._id,
+      qualification,
+      specialization,
+      experience,
+      registrationNumber: registrationNumber.trim(),
+      clinicName,
+      clinicAddress,
+      consultationFee,
+      about,
+      availability: normalizeAvailability(availability),
+      status: "pending",
+      isActive: false,
+    });
+
+    res.status(201).json({
+      success: true,
+      message: "Veterinarian application submitted. Verify your email and await administrator approval",
+      application: {
+        id: vet._id,
+        email: vetUser.email,
+        status: vet.status,
+      },
+    });
+  } catch (error) {
+    await User.findByIdAndDelete(vetUser._id);
+    throw error;
+  }
+});
+
 export const createVet = asyncHandler(async (req, res) => {
   const {
     name,
@@ -21,7 +112,7 @@ export const createVet = asyncHandler(async (req, res) => {
     clinicAddress,
     consultationFee,
     about,
-    availableDays,
+    availability,
     availableTime,
   } = req.body;
 
@@ -93,7 +184,7 @@ export const createVet = asyncHandler(async (req, res) => {
       clinicAddress,
       consultationFee,
       about,
-      availableDays,
+      availability: normalizeAvailability(availability),
       availableTime,
       status: "approved",
       isActive: true,
@@ -196,7 +287,9 @@ export const getAllVets = asyncHandler(async (req, res) => {
   }
 
   if (availableDay) {
-    profileFilter.availableDays = availableDay;
+    profileFilter.availability = {
+      $elemMatch: { day: availableDay, isAvailable: true },
+    };
   }
 
   const userFilter = {
@@ -341,7 +434,7 @@ export const updateVet = asyncHandler(async (req, res) => {
     "clinicName",
     "consultationFee",
     "about",
-    "availableDays",
+    "availability",
   ];
 
   allowedFields.forEach((field) => {

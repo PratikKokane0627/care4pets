@@ -3,7 +3,7 @@ import express from "express";
 import {
   createGroomingBooking,  getMyGroomingBookings,getAvailableGroomingBookings, getGroomerBookings, 
   acceptGroomingBooking,rejectGroomingBooking,completeGroomingBooking, updateGroomerNotes, getGroomerDashboardStats, 
-   cancelGroomingBooking,getGroomingBookingById,getAllGroomingBookings, getAdminGroomingDashboardStats,
+   assignGroomer, cancelGroomingBooking,getGroomingBookingById,getAllGroomingBookings, getAdminGroomingDashboardStats,
 } from "../controllers/groomingBookingController.js";
 
 import { protect } from "../middleware/authMiddleware.js";
@@ -15,6 +15,7 @@ router.post("/",protect,authorize("owner"),createGroomingBooking);
  router.get('/', protect,authorize("owner"),getMyGroomingBookings);
  router.get("/admin/dashboard",protect,authorize("admin"),getAdminGroomingDashboardStats);
  router.get("/admin/all",protect,authorize("admin"),getAllGroomingBookings);
+ router.patch("/:id/assign", protect, authorize("admin"), assignGroomer);
  router.get("/groomer/dashboard",protect,authorize("groomer"),getGroomerDashboardStats);
 router.get("/available",protect,authorize("groomer"),getAvailableGroomingBookings);
 router.get("/groomer",protect,authorize("groomer"),getGroomerBookings);
