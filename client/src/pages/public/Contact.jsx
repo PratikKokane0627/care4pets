@@ -57,7 +57,7 @@ const Contact = () => {
 
           <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-slate-400">
             Contact our support team for help with pet profiles,
-            appointments, grooming, vaccinations, orders or payments.
+            appointments, grooming, vaccinations or orders.
           </p>
         </div>
       </section>
@@ -65,7 +65,7 @@ const Contact = () => {
       <section className="px-5 pb-24 pt-10 lg:px-8">
         <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[0.8fr_1.2fr]">
           <div className="space-y-5">
-            <article className="rounded-3xl border border-white/10 bg-[#0b1222] p-6">
+            <article className="rounded-3xl border border-white/10 bg-[#0b1222] p-6 transition duration-300 hover:-translate-y-1 hover:border-cyan-300/30">
               <div className="flex items-start gap-4">
                 <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-indigo-500/10 text-xl text-indigo-400">
                   <FiMail />
@@ -90,7 +90,7 @@ const Contact = () => {
               </div>
             </article>
 
-            <article className="rounded-3xl border border-white/10 bg-[#0b1222] p-6">
+            <article className="rounded-3xl border border-white/10 bg-[#0b1222] p-6 transition duration-300 hover:-translate-y-1 hover:border-cyan-300/30">
               <div className="flex items-start gap-4">
                 <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-cyan-500/10 text-xl text-cyan-400">
                   <FiPhone />
@@ -115,7 +115,7 @@ const Contact = () => {
               </div>
             </article>
 
-            <article className="rounded-3xl border border-white/10 bg-[#0b1222] p-6">
+            <article className="rounded-3xl border border-white/10 bg-[#0b1222] p-6 transition duration-300 hover:-translate-y-1 hover:border-cyan-300/30">
               <div className="flex items-start gap-4">
                 <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-emerald-500/10 text-xl text-emerald-400">
                   <FiMapPin />
@@ -133,7 +133,7 @@ const Contact = () => {
               </div>
             </article>
 
-            <article className="rounded-3xl border border-white/10 bg-[#0b1222] p-6">
+            <article className="rounded-3xl border border-white/10 bg-[#0b1222] p-6 transition duration-300 hover:-translate-y-1 hover:border-cyan-300/30">
               <div className="flex items-start gap-4">
                 <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-yellow-500/10 text-xl text-yellow-400">
                   <FiClock />
@@ -156,7 +156,7 @@ const Contact = () => {
 
           <form
             onSubmit={handleSubmit}
-            className="rounded-3xl border border-white/10 bg-[#0b1222] p-7 sm:p-9"
+            className="rounded-3xl border border-white/10 bg-[#0b1222] p-7 transition duration-300 hover:border-cyan-300/30 sm:p-9"
           >
             <h2 className="text-2xl font-bold text-white">
               Send Us a Message

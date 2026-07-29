@@ -29,7 +29,7 @@ const StatsSection = () => {
         {statistics.map((item) => (
           <article
             key={item.label}
-            className="rounded-2xl border border-white/10 bg-gradient-to-br from-white/10 to-indigo-500/10 p-6 text-center"
+            className="rounded-2xl border border-white/10 bg-gradient-to-br from-white/10 to-indigo-500/10 p-6 text-center transition duration-300 hover:-translate-y-1 hover:border-cyan-300/30"
           >
             <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-400/10 text-indigo-300">
               {item.icon}

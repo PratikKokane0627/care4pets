@@ -52,12 +52,12 @@ const ContactSection = () => {
 
           <p className="mt-4 leading-7 text-slate-400">
             Have questions about appointments, grooming,
-            vaccinations, payments or orders? Send us a message.
+            vaccinations or orders? Send us a message.
           </p>
         </div>
 
         <div className="grid gap-8 lg:grid-cols-[0.8fr_1.2fr]">
-          <div className="rounded-3xl border border-white/10 bg-[#0b1222] p-7">
+          <div className="rounded-3xl border border-white/10 bg-[#0b1222] p-7 transition duration-300 hover:-translate-y-1 hover:border-cyan-300/30">
             <h3 className="text-2xl font-semibold text-white">
               Get in Touch
             </h3>
@@ -123,7 +123,7 @@ const ContactSection = () => {
               </div>
             </div>
 
-            <div className="mt-10 rounded-2xl border border-white/10 bg-white/5 p-5">
+            <div className="mt-10 rounded-2xl border border-white/10 bg-white/5 p-5 transition duration-300 hover:border-cyan-300/30 hover:bg-white/10">
               <p className="text-sm font-semibold text-white">
                 Support Hours
               </p>
@@ -138,7 +138,7 @@ const ContactSection = () => {
 
           <form
             onSubmit={handleSubmit}
-            className="rounded-3xl border border-white/10 bg-[#0b1222] p-7"
+            className="rounded-3xl border border-white/10 bg-[#0b1222] p-7 transition duration-300 hover:-translate-y-1 hover:border-cyan-300/30"
           >
             {submitted && (
               <div className="mb-6 rounded-xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-300">

@@ -57,7 +57,7 @@ const About = () => {
           <p className="mx-auto mt-6 max-w-3xl text-lg leading-8 text-slate-400">
             Care4Pets is a complete pet care management platform that helps pet
             owners manage health records, appointments, grooming, vaccinations,
-            shopping and payments from one place.
+            shopping from one place.
           </p>
         </div>
       </section>
@@ -94,29 +94,29 @@ const About = () => {
             </Link>
           </div>
 
-          <div className="relative rounded-3xl border border-white/10 bg-[#0b1222] p-8">
+          <div className="relative rounded-3xl border border-white/10 bg-[#0b1222] p-8 transition duration-300 hover:-translate-y-1 hover:border-cyan-300/30">
             <div className="absolute right-6 top-6 h-28 w-28 rounded-full bg-indigo-500/20 blur-3xl" />
 
             <div className="relative grid gap-5 sm:grid-cols-2">
-              <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-6 transition duration-300 hover:border-cyan-300/30 hover:bg-white/10">
                 <FiUsers className="text-3xl text-indigo-400" />
                 <h3 className="mt-4 text-3xl font-bold text-white">10K+</h3>
                 <p className="mt-1 text-slate-400">Pet owners supported</p>
               </div>
 
-              <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-6 transition duration-300 hover:border-cyan-300/30 hover:bg-white/10">
                 <FiShield className="text-3xl text-cyan-400" />
                 <h3 className="mt-4 text-3xl font-bold text-white">500+</h3>
                 <p className="mt-1 text-slate-400">Care professionals</p>
               </div>
 
-              <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-6 transition duration-300 hover:border-cyan-300/30 hover:bg-white/10">
                 <FiCalendar className="text-3xl text-emerald-400" />
                 <h3 className="mt-4 text-3xl font-bold text-white">25K+</h3>
                 <p className="mt-1 text-slate-400">Bookings managed</p>
               </div>
 
-              <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-6 transition duration-300 hover:border-cyan-300/30 hover:bg-white/10">
                 <FiShoppingBag className="text-3xl text-yellow-400" />
                 <h3 className="mt-4 text-3xl font-bold text-white">1K+</h3>
                 <p className="mt-1 text-slate-400">Pet products</p>
@@ -167,7 +167,7 @@ const About = () => {
       </section>
 
       <section className="px-5 py-20 lg:px-8">
-        <div className="mx-auto max-w-5xl rounded-3xl border border-indigo-400/20 bg-gradient-to-r from-indigo-500/10 to-cyan-500/10 px-7 py-12 text-center">
+        <div className="mx-auto max-w-5xl rounded-3xl border border-indigo-400/20 bg-gradient-to-r from-indigo-500/10 to-cyan-500/10 px-7 py-12 text-center transition duration-300 hover:-translate-y-1 hover:border-cyan-300/40">
           <FaPaw className="mx-auto text-4xl text-indigo-400" />
 
           <h2 className="mt-5 text-3xl font-bold text-white">

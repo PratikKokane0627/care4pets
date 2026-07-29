@@ -23,14 +23,9 @@ const faqs = [
       "Yes. You can browse available services, select a date and submit a booking request from your account.",
   },
   {
-    question: "Is online payment supported?",
-    answer:
-      "Yes. Care4Pets supports secure online payments through Razorpay for eligible orders and services.",
-  },
-  {
     question: "Can I track my orders?",
     answer:
-      "Yes. You can view order history, payment status and order status from your dashboard.",
+      "Yes. You can view order history and order status from your dashboard.",
   },
 ];
 
@@ -60,7 +55,7 @@ const FAQSection = () => {
 
           <p className="mt-4 leading-7 text-slate-400">
             Learn more about pets, appointments, grooming,
-            vaccinations, payments and orders.
+            vaccinations and orders.
           </p>
         </div>
 
@@ -71,7 +66,7 @@ const FAQSection = () => {
             return (
               <article
                 key={faq.question}
-                className="overflow-hidden rounded-2xl border border-white/10 bg-[#0b1222]"
+                className="overflow-hidden rounded-2xl border border-white/10 bg-[#0b1222] transition duration-300 hover:-translate-y-1 hover:border-cyan-300/30"
               >
                 <button
                   type="button"
