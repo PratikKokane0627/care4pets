@@ -3,7 +3,8 @@ import mongoose from "mongoose";
 import Appointment from "../models/Appointment.js";
 import Pet from "../models/Pet.js";
 import VetProfile from "../models/VetProfile.js";
-import Notification from "../models/notificationModel.js";
+// Notification code temporarily disabled.
+// import Notification from "../models/notificationModel.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import ApiError from "../utils/ApiError.js";
 
@@ -156,14 +157,15 @@ export const bookAppointment = asyncHandler(async (req, res) => {
     paymentStatus: "pending",
   });
 
-  await Notification.create({
-    userId: req.user._id,
-    title: "Appointment Booked",
-    message: "Your veterinary appointment was booked successfully.",
-    type: "Appointment",
-    referenceId: appointment._id,
-    referenceModel: "Appointment",
-  });
+  // Notification code temporarily disabled.
+  // await Notification.create({
+  //   userId: req.user._id,
+  //   title: "Appointment Booked",
+  //   message: "Your veterinary appointment was booked successfully.",
+  //   type: "Appointment",
+  //   referenceId: appointment._id,
+  //   referenceModel: "Appointment",
+  // });
 
   const populatedAppointment = await Appointment.findById(
     appointment._id
@@ -506,14 +508,15 @@ export const acceptAppointment = asyncHandler(async (req, res) => {
   appointment.status = "accepted";
   await appointment.save();
 
-  await Notification.create({
-    userId: appointment.ownerId,
-    title: "Appointment Accepted",
-    message: "Your veterinary appointment has been accepted.",
-    type: "Appointment",
-    referenceId: appointment._id,
-    referenceModel: "Appointment",
-  });
+  // Notification code temporarily disabled.
+  // await Notification.create({
+  //   userId: appointment.ownerId,
+  //   title: "Appointment Accepted",
+  //   message: "Your veterinary appointment has been accepted.",
+  //   type: "Appointment",
+  //   referenceId: appointment._id,
+  //   referenceModel: "Appointment",
+  // });
 
   const updatedAppointment = await Appointment.findById(appointment._id)
     .populate("ownerId", "name email phone")
@@ -570,14 +573,15 @@ export const rejectAppointment = asyncHandler(async (req, res) => {
 
   await appointment.save();
 
-  await Notification.create({
-    userId: appointment.ownerId,
-    title: "Appointment Rejected",
-    message: "Your veterinary appointment has been rejected.",
-    type: "Appointment",
-    referenceId: appointment._id,
-    referenceModel: "Appointment",
-  });
+  // Notification code temporarily disabled.
+  // await Notification.create({
+  //   userId: appointment.ownerId,
+  //   title: "Appointment Rejected",
+  //   message: "Your veterinary appointment has been rejected.",
+  //   type: "Appointment",
+  //   referenceId: appointment._id,
+  //   referenceModel: "Appointment",
+  // });
 
   res.status(200).json({
     success: true,

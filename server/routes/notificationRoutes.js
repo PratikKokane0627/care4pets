@@ -1,3 +1,6 @@
+/*
+Notification code temporarily disabled.
+
 import express from "express";
 
 import {
@@ -58,3 +61,4 @@ router.delete(
 );
 
 export default router;
+*/

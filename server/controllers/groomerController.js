@@ -56,7 +56,12 @@ export const getAvailableGroomers = asyncHandler(async (req, res) => {
 
   const profiles = await GroomerProfile.find(filter).populate({
     path: "userId",
-    match: { role: "groomer", status: "active", isVerified: true },
+    match: {
+      role: "groomer",
+      status: "active",
+      // Email verification before login temporarily disabled.
+      // isVerified: true,
+    },
     select: "name phone profileImage",
   });
 

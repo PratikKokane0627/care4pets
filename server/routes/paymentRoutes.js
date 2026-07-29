@@ -1,3 +1,6 @@
+/*
+Payment code temporarily disabled.
+
 import express from "express";
 import { protect } from "../middleware/authMiddleware.js";
 import { authorize } from "../middleware/roleMiddleware.js";
@@ -21,3 +24,4 @@ router.post(
 );
 
 export default router;
+*/

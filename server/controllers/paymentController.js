@@ -1,3 +1,6 @@
+/*
+Payment code temporarily disabled.
+
 import Razorpay from "../config/razorpay.js";
 import Order from "../models/Order.js";
 import asyncHandler from "../utils/asyncHandler.js";
@@ -490,3 +493,4 @@ export const razorpayWebhook = asyncHandler(async (req, res) => {
     message: "Webhook processed successfully",
   });
 });
+*/

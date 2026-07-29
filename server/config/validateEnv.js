@@ -4,15 +4,19 @@ const requiredVariables = [
   "CLOUDINARY_CLOUD_NAME",
   "CLOUDINARY_API_KEY",
   "CLOUDINARY_API_SECRET",
-  "RAZORPAY_KEY_ID",
-  "RAZORPAY_KEY_SECRET",
-  "RAZORPAY_WEBHOOK_SECRET",
-  "EMAIL_USER",
-  "EMAIL_PASSWORD",
+  // Payment code temporarily disabled.
+  // "RAZORPAY_KEY_ID",
+  // "RAZORPAY_KEY_SECRET",
+  // "RAZORPAY_WEBHOOK_SECRET",
 ];
 
 const validateEnv = () => {
-  const missing = requiredVariables.filter((name) => !process.env[name]?.trim());
+  const productionOnlyVariables = ["EMAIL_USER", "EMAIL_PASSWORD"];
+  const variablesToCheck =
+    process.env.NODE_ENV === "production"
+      ? [...requiredVariables, ...productionOnlyVariables]
+      : requiredVariables;
+  const missing = variablesToCheck.filter((name) => !process.env[name]?.trim());
   if (missing.length) {
     throw new Error(`Missing required environment variables: ${missing.join(", ")}`);
   }

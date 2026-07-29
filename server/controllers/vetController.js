@@ -64,7 +64,9 @@ export const applyAsVet = asyncHandler(async (req, res) => {
     password: await bcrypt.hash(password, 10),
     role: "vet",
     status: "pending",
-    isVerified: false,
+    // Email verification before login temporarily disabled.
+    // isVerified: false,
+    isVerified: true,
   });
 
   try {
@@ -85,7 +87,7 @@ export const applyAsVet = asyncHandler(async (req, res) => {
 
     res.status(201).json({
       success: true,
-      message: "Veterinarian application submitted. Verify your email and await administrator approval",
+      message: "Veterinarian application submitted. Await administrator approval",
       application: {
         id: vet._id,
         email: vetUser.email,

@@ -14,9 +14,10 @@ import categoryRoutes from "./routes/categoryRoutes.js";
 import groomingBookingRoutes from "./routes/groomingBookingRoutes.js";
 import groomingServiceRoutes from "./routes/groomingServiceRoutes.js";
 import groomerRoutes from "./routes/groomerRoutes.js";
-import notificationRoutes from "./routes/notificationRoutes.js";
+// Payment and notification routes are temporarily disabled.
+// import notificationRoutes from "./routes/notificationRoutes.js";
 import orderRoutes from "./routes/orderRoutes.js";
-import paymentRoutes from "./routes/paymentRoutes.js";
+// import paymentRoutes from "./routes/paymentRoutes.js";
 import petRoutes from "./routes/petRoutes.js";
 import productRoutes from "./routes/productRoutes.js";
 import reviewRoutes from "./routes/reviewRoutes.js";
@@ -36,16 +37,21 @@ app.set("trust proxy", 1);
 app.use(requestContext);
 app.use(
   helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" },
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
-        scriptSrc: ["'self'", "'unsafe-inline'", "https://checkout.razorpay.com"],
-        frameSrc: [
-          "'self'",
-          "https://api.razorpay.com",
-          "https://checkout.razorpay.com",
-        ],
-        connectSrc: ["'self'", "https://api.razorpay.com"],
+        // Payment code temporarily disabled.
+        // scriptSrc: ["'self'", "'unsafe-inline'", "https://checkout.razorpay.com"],
+        // frameSrc: [
+        //   "'self'",
+        //   "https://api.razorpay.com",
+        //   "https://checkout.razorpay.com",
+        // ],
+        // connectSrc: ["'self'", "https://api.razorpay.com"],
+        scriptSrc: ["'self'", "'unsafe-inline'"],
+        frameSrc: ["'self'"],
+        connectSrc: ["'self'"],
       },
     },
   })
@@ -60,8 +66,9 @@ app.use(
   })
 );
 
+// Payment code temporarily disabled.
 // Webhook signatures must be calculated from the untouched request bytes.
-app.use("/api/payments/webhook", express.raw({ type: "application/json" }));
+// app.use("/api/payments/webhook", express.raw({ type: "application/json" }));
 app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: true }));
 app.use(rejectMongoOperators);
@@ -105,8 +112,9 @@ app.use("/api/cart", cartRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/reviews", reviewRoutes);
 app.use("/api/wishlist", wishlistRoutes);
-app.use("/api/payments", paymentRoutes);
-app.use("/api/notifications", notificationRoutes);
+// Payment and notification APIs temporarily disabled.
+// app.use("/api/payments", paymentRoutes);
+// app.use("/api/notifications", notificationRoutes);
 app.use("/api/admin", adminRoutes);
 
 app.use((req, res, next) => {

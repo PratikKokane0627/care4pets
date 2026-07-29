@@ -2,8 +2,11 @@ import nodemailer from "nodemailer";
 
 import ApiError from "../utils/ApiError.js";
 
+const isEmailConfigured = () =>
+  Boolean(process.env.EMAIL_USER?.trim() && process.env.EMAIL_PASSWORD?.trim());
+
 const getTransporter = () => {
-  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
+  if (!isEmailConfigured()) {
     throw new ApiError(503, "Email service is not configured");
   }
 
@@ -17,6 +20,15 @@ const getTransporter = () => {
 };
 
 const sendEmail = async ({ to, subject, text, html }) => {
+  if (!isEmailConfigured() && process.env.NODE_ENV !== "production") {
+    console.log("\n[Care4Pets demo email]");
+    console.log(`To: ${to}`);
+    console.log(`Subject: ${subject}`);
+    console.log(text);
+    console.log("[/Care4Pets demo email]\n");
+    return;
+  }
+
   await getTransporter().sendMail({
     from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
     to,

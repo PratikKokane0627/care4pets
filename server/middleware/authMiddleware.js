@@ -64,9 +64,10 @@ export const protect = asyncHandler(async (req, res, next) => {
       );
     }
 
-    if (!user.isVerified) {
-      throw new ApiError(403, "Verify your email before accessing this resource");
-    }
+    // Email verification before login temporarily disabled.
+    // if (!user.isVerified) {
+    //   throw new ApiError(403, "Verify your email before accessing this resource");
+    // }
 
     // 6. Attach user to request
     req.user = user;

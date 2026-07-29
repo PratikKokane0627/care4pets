@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
-import cloudinary from "../config/cloudinary.js";
 import uploadToCloudinary from "../utils/uploadToCloudinary.js";
+import deleteUploadedImage from "../utils/deleteUploadedImage.js";
 import Pet from "../models/Pet.js";
 import Appointment from "../models/Appointment.js";
 import asyncHandler from "../utils/asyncHandler.js";
@@ -191,7 +191,8 @@ export const uploadPetImage = asyncHandler(async (req, res) => {
 
   const result = await uploadToCloudinary(
     req.file.buffer,
-    "care4pets/pets"
+    "care4pets/pets",
+    req.file.mimetype
   );
 
   try {
@@ -202,17 +203,53 @@ export const uploadPetImage = asyncHandler(async (req, res) => {
 
     await pet.save();
   } catch (error) {
-    await cloudinary.uploader.destroy(result.public_id);
+    await deleteUploadedImage(result.public_id);
     throw error;
   }
 
   if (oldPublicId) {
-    await cloudinary.uploader.destroy(oldPublicId);
+    await deleteUploadedImage(oldPublicId);
   }
 
   res.status(200).json({
     success: true,
     message: "Pet image uploaded successfully",
+    image: pet.profileImage,
+    pet,
+  });
+});
+
+export const deletePetImage = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    throw new ApiError(400, "Invalid pet ID");
+  }
+
+  const pet = await Pet.findOne({
+    _id: id,
+    ownerId: req.user._id,
+    isActive: true,
+  });
+
+  if (!pet) {
+    throw new ApiError(404, "Pet not found");
+  }
+
+  if (pet.profileImage?.publicId) {
+    await deleteUploadedImage(pet.profileImage.publicId);
+  }
+
+  pet.profileImage = {
+    url: "",
+    publicId: "",
+  };
+
+  await pet.save();
+
+  res.status(200).json({
+    success: true,
+    message: "Pet image deleted successfully",
     image: pet.profileImage,
     pet,
   });

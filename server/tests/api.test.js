@@ -48,13 +48,6 @@ describe("authentication and authorization", () => {
     expect(registration.body.token).toBeUndefined();
     expect(registration.body.user.email).toBe("owner@example.com");
 
-    const unverifiedLogin = await request(app).post("/api/auth/login").send({
-      email: "owner@example.com",
-      password: "Password123!",
-    });
-    expect(unverifiedLogin.status).toBe(403);
-
-    await User.updateOne({ email: "owner@example.com" }, { isVerified: true });
     const login = await request(app).post("/api/auth/login").send({
       email: "owner@example.com",
       password: "Password123!",
@@ -261,7 +254,7 @@ describe("admin operations", () => {
     expect(response.status).toBe(400);
   });
 
-  it("accepts a verified veterinarian application for admin approval", async () => {
+  it("accepts a veterinarian application for admin approval", async () => {
     const application = await request(app).post("/api/vets/apply").send({
       name: "Dr Test",
       email: "vet-applicant@example.com",
@@ -281,8 +274,6 @@ describe("admin operations", () => {
     expect(application.status).toBe(201);
 
     const vetUser = await User.findOne({ email: "vet-applicant@example.com" });
-    vetUser.isVerified = true;
-    await vetUser.save({ validateBeforeSave: false });
 
     const admin = await createUser({ role: "admin", email: "vet-admin@example.com" });
     const approved = await request(app)
@@ -336,7 +327,8 @@ describe("admin operations", () => {
   });
 });
 
-describe("payments and webhooks", () => {
+// Payment code temporarily disabled.
+describe.skip("payments and webhooks", () => {
   const createOnlineOrder = async (userId, overrides = {}) =>
     Order.create({
       userId,

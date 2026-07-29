@@ -397,7 +397,9 @@ export const wishlistSummary = asyncHandler(async (req, res) => {
     {
       $match: {
         "product.isActive": true,
-        "product.isDeleted": false,
+        "product.isDeleted": {
+          $ne: true,
+        },
       },
     },
   ]);

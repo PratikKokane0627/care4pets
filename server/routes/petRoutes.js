@@ -1,6 +1,6 @@
 import express from "express";
 
-import { addPet,getMyPets,getPetById,updatePet,deletePet,uploadPetImage,getPetMedicalHistory, } from "../controllers/petController.js";
+import { addPet,getMyPets,getPetById,updatePet,deletePet,uploadPetImage,deletePetImage,getPetMedicalHistory, } from "../controllers/petController.js";
 import { protect } from "../middleware/authMiddleware.js";
 import { authorize } from "../middleware/roleMiddleware.js";
 import upload from "../middleware/uploadMiddleware.js";
@@ -11,6 +11,7 @@ router.post("/", protect, authorize("owner"), addPet);
 router.get("/", protect, authorize("owner"), getMyPets);
 
 router.put("/:id/image",protect,authorize("owner"),upload.single("image"),uploadPetImage);
+router.delete("/:id/image",protect,authorize("owner"),deletePetImage);
 
 router.get("/:id",protect,authorize("owner"),getPetById);
 router.put("/:id",protect,authorize("owner"),updatePet);

@@ -1,13 +1,13 @@
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 
-import cloudinary from "../config/cloudinary.js";
 import User from "../models/User.js";
 import VetProfile from "../models/VetProfile.js";
 import { sendOtpEmail, sendPasswordResetEmail } from "../services/emailService.js";
 import deleteAccountData from "../services/accountCleanupService.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import ApiError from "../utils/ApiError.js";
+import deleteUploadedImage from "../utils/deleteUploadedImage.js";
 import generateToken from "../utils/generateToken.js";
 import uploadToCloudinary from "../utils/uploadToCloudinary.js";
 
@@ -71,12 +71,14 @@ export const register = asyncHandler(async (req, res) => {
     password: hashedPassword,
     role: "owner",
     status: "active",
+    isVerified: true,
   });
 
+  // Email verification before login temporarily disabled.
   // Verification is required before authentication.
   res.status(201).json({
     success: true,
-    message: "Registration successful. Verify your email before logging in",
+    message: "Registration successful. You can now log in",
     user: {
       id: user._id,
       name: user.name,
@@ -119,9 +121,10 @@ export const login = asyncHandler(async (req, res) => {
     throw new ApiError(401, "Invalid email or password");
   }
 
-  if (!user.isVerified) {
-    throw new ApiError(403, "Verify your email before logging in");
-  }
+  // Email verification before login temporarily disabled.
+  // if (!user.isVerified) {
+  //   throw new ApiError(403, "Verify your email before logging in");
+  // }
 
   // 4. Check account status
   if (user.status === "blocked") {
@@ -378,7 +381,9 @@ export const updateProfile = asyncHandler(async (req, res) => {
     if (exists) throw new ApiError(409, "User with this email already exists");
     if (email !== req.user.email) {
       req.user.email = email;
-      req.user.isVerified = false;
+      // Email verification before login temporarily disabled.
+      // req.user.isVerified = false;
+      req.user.isVerified = true;
     }
   }
 
@@ -391,23 +396,47 @@ export const updateProfileImage = asyncHandler(async (req, res) => {
 
   const user = await User.findById(req.user._id).select("+profileImagePublicId");
   const oldPublicId = user.profileImagePublicId;
-  const result = await uploadToCloudinary(req.file.buffer, "care4pets/users");
+  const result = await uploadToCloudinary(
+    req.file.buffer,
+    "care4pets/users",
+    req.file.mimetype
+  );
 
   try {
     user.profileImage = result.secure_url;
     user.profileImagePublicId = result.public_id;
     await user.save({ validateBeforeSave: false });
   } catch (error) {
-    await cloudinary.uploader.destroy(result.public_id);
+    await deleteUploadedImage(result.public_id);
     throw error;
   }
 
-  if (oldPublicId) await cloudinary.uploader.destroy(oldPublicId);
+  if (oldPublicId) await deleteUploadedImage(oldPublicId);
 
   res.json({
     success: true,
     message: "Profile image updated successfully",
     profileImage: user.profileImage,
+    user: publicUser(user),
+  });
+});
+
+export const deleteProfileImage = asyncHandler(async (req, res) => {
+  const user = await User.findById(req.user._id).select("+profileImagePublicId");
+
+  if (user.profileImagePublicId) {
+    await deleteUploadedImage(user.profileImagePublicId);
+  }
+
+  user.profileImage = "";
+  user.profileImagePublicId = "";
+  await user.save({ validateBeforeSave: false });
+
+  res.json({
+    success: true,
+    message: "Profile image deleted successfully",
+    profileImage: user.profileImage,
+    user: publicUser(user),
   });
 });
 
@@ -426,7 +455,7 @@ export const deleteAccount = asyncHandler(async (req, res) => {
 
   await deleteAccountData(user);
   if (user.profileImagePublicId) {
-    await cloudinary.uploader.destroy(user.profileImagePublicId);
+    await deleteUploadedImage(user.profileImagePublicId);
   }
 
   res.json({ success: true, message: "Account deleted successfully" });

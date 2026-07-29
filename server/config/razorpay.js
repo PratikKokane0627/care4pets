@@ -1,3 +1,6 @@
+/*
+Payment code temporarily disabled.
+
 import Razorpay from "razorpay";
 import dotenv from "dotenv";
 
@@ -9,3 +12,4 @@ const razorpay = new Razorpay({
 });
 
 export default razorpay;
+*/

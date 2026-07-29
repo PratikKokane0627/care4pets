@@ -1,3 +1,6 @@
+/*
+Payment code temporarily disabled.
+
 import crypto from "crypto";
 import mongoose from "mongoose";
 
@@ -149,3 +152,4 @@ export const getServicePaymentHistory = asyncHandler(async (req, res) => {
 
   res.json({ success: true, payments });
 });
+*/

@@ -2,7 +2,8 @@ import bcrypt from "bcryptjs";
 import mongoose from "mongoose";
 
 import Appointment from "../models/Appointment.js";
-import GroomingBooking from "../models/GroomingBooking.js";
+// Payment code temporarily disabled.
+// import GroomingBooking from "../models/GroomingBooking.js";
 import Order from "../models/Order.js";
 import User from "../models/User.js";
 import VetProfile from "../models/VetProfile.js";
@@ -65,7 +66,6 @@ export const getDashboard = asyncHandler(async (req, res) => {
     totalGroomers,
     totalAppointments,
     totalOrders,
-    revenue,
   ] = await Promise.all([
     User.countDocuments(),
     User.countDocuments({ status: "active" }),
@@ -74,10 +74,6 @@ export const getDashboard = asyncHandler(async (req, res) => {
     User.countDocuments({ role: "groomer" }),
     Appointment.countDocuments(),
     Order.countDocuments(),
-    Order.aggregate([
-      { $match: { paymentStatus: "Paid" } },
-      { $group: { _id: null, total: { $sum: "$totalAmount" } } },
-    ]),
   ]);
 
   res.json({
@@ -88,7 +84,8 @@ export const getDashboard = asyncHandler(async (req, res) => {
       groomers: totalGroomers,
       appointments: totalAppointments,
       orders: totalOrders,
-      paidOrderRevenue: revenue[0]?.total || 0,
+      // Payment code temporarily disabled.
+      // paidOrderRevenue: revenue[0]?.total || 0,
     },
   });
 });
@@ -185,9 +182,10 @@ const setVetApproval = (profileStatus, userStatus, message) =>
     if (!vet) throw new ApiError(404, "Veterinarian not found");
     const vetUser = await User.findById(vet.userId);
     if (!vetUser) throw new ApiError(404, "Veterinarian user account not found");
-    if (profileStatus === "approved" && !vetUser.isVerified) {
-      throw new ApiError(400, "Veterinarian must verify their email before approval");
-    }
+    // Email verification before login temporarily disabled.
+    // if (profileStatus === "approved" && !vetUser.isVerified) {
+    //   throw new ApiError(400, "Veterinarian must verify their email before approval");
+    // }
 
     vet.status = profileStatus;
     vet.isActive = profileStatus === "approved";
@@ -284,7 +282,8 @@ export const getAppointments = asyncHandler(async (req, res) => {
   const { page, limit, skip } = parsePagination(req.query);
   const filter = { ...dateRange(req.query) };
   if (req.query.status) filter.status = req.query.status;
-  if (req.query.paymentStatus) filter.paymentStatus = req.query.paymentStatus;
+  // Payment code temporarily disabled.
+  // if (req.query.paymentStatus) filter.paymentStatus = req.query.paymentStatus;
 
   const [appointments, total] = await Promise.all([
     Appointment.find(filter)
@@ -304,72 +303,73 @@ export const getAppointments = asyncHandler(async (req, res) => {
   });
 });
 
-export const getPayments = asyncHandler(async (req, res) => {
-  const { page, limit, skip } = parsePagination(req.query);
-  const filter = { ...dateRange(req.query) };
-  if (req.query.status) filter.paymentStatus = req.query.status;
-  if (req.query.method) filter.paymentMethod = req.query.method;
-
-  const [payments, total, summary] = await Promise.all([
-    Order.find(filter)
-      .select("userId totalAmount paymentMethod paymentStatus razorpayOrderId razorpayPaymentId paidAt createdAt")
-      .populate("userId", "name email")
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit),
-    Order.countDocuments(filter),
-    Order.aggregate([
-      { $match: filter },
-      {
-        $group: {
-          _id: "$paymentStatus",
-          count: { $sum: 1 },
-          amount: { $sum: "$totalAmount" },
-        },
-      },
-    ]),
-  ]);
-
-  res.json({
-    success: true,
-    payments,
-    summary,
-    pagination: pagination(page, limit, total),
-  });
-});
+// Payment code temporarily disabled.
+// export const getPayments = asyncHandler(async (req, res) => {
+//   const { page, limit, skip } = parsePagination(req.query);
+//   const filter = { ...dateRange(req.query) };
+//   if (req.query.status) filter.paymentStatus = req.query.status;
+//   if (req.query.method) filter.paymentMethod = req.query.method;
+//
+//   const [payments, total, summary] = await Promise.all([
+//     Order.find(filter)
+//       .select("userId totalAmount paymentMethod paymentStatus razorpayOrderId razorpayPaymentId paidAt createdAt")
+//       .populate("userId", "name email")
+//       .sort({ createdAt: -1 })
+//       .skip(skip)
+//       .limit(limit),
+//     Order.countDocuments(filter),
+//     Order.aggregate([
+//       { $match: filter },
+//       {
+//         $group: {
+//           _id: "$paymentStatus",
+//           count: { $sum: 1 },
+//           amount: { $sum: "$totalAmount" },
+//         },
+//       },
+//     ]),
+//   ]);
+//
+//   res.json({
+//     success: true,
+//     payments,
+//     summary,
+//     pagination: pagination(page, limit, total),
+//   });
+// });
 
 export const getReports = asyncHandler(async (req, res) => {
   const range = dateRange(req.query);
-  const paidOrders = { ...range, paymentStatus: "Paid" };
+  // Payment code temporarily disabled.
+  // const paidOrders = { ...range, paymentStatus: "Paid" };
 
   const [
-    revenue,
     orderStatuses,
-    paymentStatuses,
     appointmentStatuses,
     userGrowth,
     popularProducts,
-    groomingRevenue,
   ] = await Promise.all([
-    Order.aggregate([
-      { $match: paidOrders },
-      {
-        $group: {
-          _id: null,
-          revenue: { $sum: "$totalAmount" },
-          orders: { $sum: 1 },
-          averageOrderValue: { $avg: "$totalAmount" },
-        },
-      },
-    ]),
+    // Payment code temporarily disabled.
+    // Order.aggregate([
+    //   { $match: paidOrders },
+    //   {
+    //     $group: {
+    //       _id: null,
+    //       revenue: { $sum: "$totalAmount" },
+    //       orders: { $sum: 1 },
+    //       averageOrderValue: { $avg: "$totalAmount" },
+    //     },
+    //   },
+    // ]),
     Order.aggregate([
       { $match: range },
       { $group: { _id: "$orderStatus", count: { $sum: 1 }, amount: { $sum: "$totalAmount" } } },
     ]),
-    Order.aggregate([
-      { $match: range },
-      { $group: { _id: "$paymentStatus", count: { $sum: 1 }, amount: { $sum: "$totalAmount" } } },
-    ]),
+    // Payment code temporarily disabled.
+    // Order.aggregate([
+    //   { $match: range },
+    //   { $group: { _id: "$paymentStatus", count: { $sum: 1 }, amount: { $sum: "$totalAmount" } } },
+    // ]),
     Appointment.aggregate([
       { $match: range },
       { $group: { _id: "$status", count: { $sum: 1 }, fees: { $sum: "$consultationFee" } } },
@@ -398,21 +398,24 @@ export const getReports = asyncHandler(async (req, res) => {
       { $sort: { unitsSold: -1 } },
       { $limit: 10 },
     ]),
-    GroomingBooking.aggregate([
-      { $match: { ...range, paymentStatus: "paid" } },
-      { $group: { _id: null, revenue: { $sum: "$price" }, bookings: { $sum: 1 } } },
-    ]),
+    // Payment code temporarily disabled.
+    // GroomingBooking.aggregate([
+    //   { $match: { ...range, paymentStatus: "paid" } },
+    //   { $group: { _id: null, revenue: { $sum: "$price" }, bookings: { $sum: 1 } } },
+    // ]),
   ]);
 
   res.json({
     success: true,
     filters: { startDate: req.query.startDate || null, endDate: req.query.endDate || null },
-    revenue: {
-      orders: revenue[0] || { revenue: 0, orders: 0, averageOrderValue: 0 },
-      grooming: groomingRevenue[0] || { revenue: 0, bookings: 0 },
-    },
+    // Payment code temporarily disabled.
+    // revenue: {
+    //   orders: revenue[0] || { revenue: 0, orders: 0, averageOrderValue: 0 },
+    //   grooming: groomingRevenue[0] || { revenue: 0, bookings: 0 },
+    // },
     sales: { orderStatuses, popularProducts },
-    payments: paymentStatuses,
+    // Payment code temporarily disabled.
+    // payments: paymentStatuses,
     appointments: appointmentStatuses,
     userGrowth,
   });

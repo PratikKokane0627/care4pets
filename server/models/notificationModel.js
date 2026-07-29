@@ -1,3 +1,6 @@
+/*
+Notification code temporarily disabled.
+
 import mongoose from "mongoose";
 
 const notificationSchema = new mongoose.Schema(
@@ -77,3 +80,4 @@ const Notification = mongoose.model(
 );
 
 export default Notification;
+*/

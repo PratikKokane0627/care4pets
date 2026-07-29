@@ -2,7 +2,8 @@ import Appointment from "../models/Appointment.js";
 import Cart from "../models/Cart.js";
 import GroomerProfile from "../models/GroomerProfile.js";
 import GroomingBooking from "../models/GroomingBooking.js";
-import Notification from "../models/notificationModel.js";
+// Notification code temporarily disabled.
+// import Notification from "../models/notificationModel.js";
 import Order from "../models/Order.js";
 import Pet from "../models/Pet.js";
 import Product from "../models/Product.js";
@@ -21,7 +22,8 @@ export const deleteAccountData = async (user) => {
     Cart.deleteMany({ userId: user._id }),
     Wishlist.deleteMany({ userId: user._id }),
     Review.deleteMany({ userId: user._id }),
-    Notification.deleteMany({ userId: user._id }),
+    // Notification code temporarily disabled.
+    // Notification.deleteMany({ userId: user._id }),
     Order.deleteMany({ userId: user._id }),
     Vaccination.deleteMany({
       $or: [

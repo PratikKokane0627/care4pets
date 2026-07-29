@@ -7,7 +7,8 @@ import {
   getAppointments,
   getDashboard,
   getGroomers,
-  getPayments,
+  // Payment code temporarily disabled.
+  // getPayments,
   getReports,
   getUserById,
   getUsers,
@@ -38,7 +39,8 @@ router.post("/groomers", createGroomer);
 router.patch("/groomers/:id/status", updateGroomerStatus);
 
 router.get("/appointments", getAppointments);
-router.get("/payments", getPayments);
+// Payment code temporarily disabled.
+// router.get("/payments", getPayments);
 router.get("/reports", getReports);
 
 export default router;
