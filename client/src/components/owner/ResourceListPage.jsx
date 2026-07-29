@@ -69,7 +69,7 @@ const ResourceListPage = ({
       <ErrorState message={error} />
 
       <Panel>
-        {renderBeforeList && <div className="mb-5">{renderBeforeList({ items })}</div>}
+        {renderBeforeList && <div className="mb-5">{renderBeforeList({ items, refresh })}</div>}
         <SearchBox
           value={query}
           onChange={setQuery}
@@ -143,7 +143,7 @@ const ResourceListPage = ({
             })}
           </div>
         )}
-        {renderFooter && <div className="mt-5">{renderFooter({ items })}</div>}
+        {renderFooter && <div className="mt-5">{renderFooter({ items, refresh })}</div>}
       </Panel>
     </main>
   );

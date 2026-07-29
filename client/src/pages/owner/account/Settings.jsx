@@ -10,7 +10,9 @@ import { Button, Field, Panel } from "../ownerShared";
 const Settings = () => {
   const navigate = useNavigate();
   const [form, setForm] = useState({ currentPassword: "", newPassword: "" });
+  const [deletePassword, setDeletePassword] = useState("");
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const setField = (field, value) => setForm((current) => ({ ...current, [field]: value }));
 
@@ -34,6 +36,21 @@ const Settings = () => {
     navigate("/login", { replace: true });
   };
 
+  const deleteAccount = async (event) => {
+    event.preventDefault();
+    if (!window.confirm("Delete your account permanently?")) return;
+    setDeleting(true);
+    try {
+      await api.delete("/auth/account", { data: { password: deletePassword } });
+      toast.success("Account deleted");
+      logout();
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Could not delete account");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   return (
     <main>
       <PageHeader title="Settings" description="Manage password and account session." />
@@ -54,6 +71,25 @@ const Settings = () => {
             <LogOut size={18} />
             Logout
           </Button>
+        </Panel>
+
+        <Panel className="lg:col-span-2">
+          <h2 className="mb-3 text-xl font-bold text-white">Delete Account</h2>
+          <p className="mb-5 text-sm text-slate-400">
+            Permanently delete this owner account and related owner data.
+          </p>
+          <form onSubmit={deleteAccount} className="grid gap-4 md:grid-cols-[1fr_auto] md:items-end">
+            <Field
+              label="Password"
+              type="password"
+              value={deletePassword}
+              onChange={setDeletePassword}
+              required
+            />
+            <Button type="submit" variant="danger" disabled={deleting}>
+              {deleting ? "Deleting..." : "Delete Account"}
+            </Button>
+          </form>
         </Panel>
       </div>
     </main>

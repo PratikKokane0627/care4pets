@@ -3,7 +3,7 @@ import { toast } from "react-hot-toast";
 
 import PageHeader from "../../../components/owner/PageHeader";
 import api from "../../../services/api";
-import { Button, Field, Panel } from "../ownerShared";
+import { Button, Field, Panel, notifyOwnerShopCounts } from "../ownerShared";
 
 const Checkout = () => {
   const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
@@ -25,6 +25,7 @@ const Checkout = () => {
     try {
       await api.post("/orders", { shippingAddress: shipping, paymentMethod: "COD" });
       toast.success("Order placed");
+      notifyOwnerShopCounts();
     } catch (err) {
       toast.error(err.response?.data?.message || "Could not place order");
     } finally {

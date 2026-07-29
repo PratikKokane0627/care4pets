@@ -3,7 +3,7 @@ import { toast } from "react-hot-toast";
 
 import ResourceListPage from "../../../components/owner/ResourceListPage";
 import api from "../../../services/api";
-import { Button, getId, itemImage, money, productName } from "../ownerShared";
+import { Button, getId, itemImage, money, notifyOwnerShopCounts, productName } from "../ownerShared";
 
 const cartProduct = (item) => item.productId || item.product || item;
 
@@ -12,6 +12,7 @@ const Cart = () => {
     try {
       await api.patch(`/cart/${getId(cartProduct(item))}`, { quantity });
       toast.success("Cart updated");
+      notifyOwnerShopCounts();
       refresh();
     } catch (err) {
       toast.error(err.response?.data?.message || "Could not update cart");
@@ -22,9 +23,22 @@ const Cart = () => {
     try {
       await api.delete(`/cart/${getId(cartProduct(item))}`);
       toast.success("Removed from cart");
+      notifyOwnerShopCounts();
       refresh();
     } catch (err) {
       toast.error(err.response?.data?.message || "Could not remove item");
+    }
+  };
+
+  const clearCart = async (refresh) => {
+    if (!window.confirm("Clear all cart items?")) return;
+    try {
+      await api.delete("/cart");
+      toast.success("Cart cleared");
+      notifyOwnerShopCounts();
+      refresh();
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Could not clear cart");
     }
   };
 
@@ -50,6 +64,15 @@ const Cart = () => {
         <Button as={Link} to="/owner/checkout">
           Checkout
         </Button>
+      }
+      renderBeforeList={({ items, refresh }) =>
+        items.length ? (
+          <div className="flex justify-end">
+            <Button variant="danger" onClick={() => clearCart(refresh)}>
+              Clear Cart
+            </Button>
+          </div>
+        ) : null
       }
       renderActions={(item, { refresh }) => (
         <>

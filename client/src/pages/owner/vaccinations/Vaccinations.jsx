@@ -35,17 +35,24 @@ const Vaccinations = () => {
   const [form, setForm] = useState(initialForm);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState("");
+  const [view, setView] = useState("all");
 
   const load = async () => {
+    const vaccinationEndpoint =
+      view === "upcoming"
+        ? "/vaccinations/upcoming"
+        : view === "overdue"
+          ? "/vaccinations/overdue"
+          : "/vaccinations";
     const [vaccinationRes, petRes] = await Promise.all([
-      api.get("/vaccinations"),
+      api.get(vaccinationEndpoint),
       api.get("/pets"),
     ]);
     setVaccinations(toArray(vaccinationRes.data, ["vaccinations"]));
     setPets(toArray(petRes.data, ["pets"]));
   };
 
-  const { loading, error } = useFetch(load);
+  const { loading, error } = useFetch(load, `vaccinations-${view}`);
 
   const save = async (event) => {
     event.preventDefault();
@@ -96,6 +103,21 @@ const Vaccinations = () => {
       />
       <ErrorState message={error} />
       <Panel>
+        <div className="mb-5 flex flex-wrap gap-2">
+          {[
+            { value: "all", label: "All Records" },
+            { value: "upcoming", label: "Upcoming" },
+            { value: "overdue", label: "Overdue" },
+          ].map((item) => (
+            <Button
+              key={item.value}
+              variant={view === item.value ? "primary" : "ghost"}
+              onClick={() => setView(item.value)}
+            >
+              {item.label}
+            </Button>
+          ))}
+        </div>
         {showForm && (
           <form
             onSubmit={save}
@@ -140,10 +162,14 @@ const Vaccinations = () => {
                   <p className="text-sm text-slate-400">
                     {petName(item.petId)} - next due {formatDate(item.nextDueDate)}
                   </p>
-                  <p className="mt-1 text-xs text-slate-500">{item.clinicName}</p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {item.clinicName}
+                    {item.daysRemaining !== undefined && ` - ${item.daysRemaining} days remaining`}
+                    {item.overdueDays !== undefined && ` - ${item.overdueDays} days overdue`}
+                  </p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <StatusBadge value={item.status} />
+                  <StatusBadge value={item.calculatedStatus || item.status} />
                   <Button variant="ghost" onClick={() => edit(item)}>
                     <Pencil size={16} />
                   </Button>

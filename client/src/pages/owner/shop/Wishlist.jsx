@@ -2,7 +2,7 @@ import { toast } from "react-hot-toast";
 
 import ResourceListPage from "../../../components/owner/ResourceListPage";
 import api from "../../../services/api";
-import { Button, getId, itemImage, money, productName } from "../ownerShared";
+import { Button, getId, itemImage, money, notifyOwnerShopCounts, productName } from "../ownerShared";
 
 const wishlistProduct = (item) => item.productId || item.product || item;
 
@@ -11,6 +11,7 @@ const Wishlist = () => {
     try {
       await api.delete(`/wishlist/${getId(wishlistProduct(item))}`);
       toast.success("Removed from wishlist");
+      notifyOwnerShopCounts();
       refresh();
     } catch (err) {
       toast.error(err.response?.data?.message || "Could not remove item");
@@ -21,9 +22,22 @@ const Wishlist = () => {
     try {
       await api.post(`/wishlist/${getId(wishlistProduct(item))}/move-to-cart`);
       toast.success("Moved to cart");
+      notifyOwnerShopCounts();
       refresh();
     } catch (err) {
       toast.error(err.response?.data?.message || "Could not move to cart");
+    }
+  };
+
+  const clearWishlist = async (refresh) => {
+    if (!window.confirm("Clear all wishlist items?")) return;
+    try {
+      await api.delete("/wishlist");
+      toast.success("Wishlist cleared");
+      notifyOwnerShopCounts();
+      refresh();
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Could not clear wishlist");
     }
   };
 
@@ -32,7 +46,7 @@ const Wishlist = () => {
       title="Wishlist"
       description="Saved products for later."
       endpoint="/wishlist"
-      dataKeys={["items", "wishlist.items", "wishlist"]}
+      dataKeys={["wishlistItems", "items", "wishlist.items", "wishlist"]}
       searchPlaceholder="Search wishlist"
       getTitle={(item) => productName(wishlistProduct(item))}
       getSubtitle={(item) => wishlistProduct(item).brand || "Wishlist product"}
@@ -42,6 +56,15 @@ const Wishlist = () => {
       emptyTitle="Wishlist is empty"
       emptyMessage="Products you save will appear here."
       detailPath={(item) => `/owner/shop/${getId(wishlistProduct(item))}`}
+      renderBeforeList={({ items, refresh }) =>
+        items.length ? (
+          <div className="flex justify-end">
+            <Button variant="danger" onClick={() => clearWishlist(refresh)}>
+              Clear Wishlist
+            </Button>
+          </div>
+        ) : null
+      }
       renderActions={(item, { refresh }) => (
         <>
           <Button onClick={() => moveToCart(item, refresh)}>Move To Cart</Button>

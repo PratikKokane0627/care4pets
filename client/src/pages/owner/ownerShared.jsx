@@ -41,6 +41,10 @@ export const syncStoredUser = (updates) => {
   return next;
 };
 
+export const notifyOwnerShopCounts = () => {
+  window.dispatchEvent(new Event("owner-shop-counts-updated"));
+};
+
 export const initialPetForm = {
   petName: "",
   species: "Dog",

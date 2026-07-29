@@ -3,6 +3,7 @@ import {
   Bell,
   CalendarDays,
   ChevronDown,
+  Heart,
   HeartPulse,
   LayoutDashboard,
   LogOut,
@@ -68,9 +69,16 @@ const navigationItems = [
     icon: Package,
   },
   {
+    title: "Wishlist",
+    path: "/owner/shop/wishlist",
+    icon: Heart,
+    countKey: "wishlist",
+  },
+  {
     title: "Cart",
     path: "/owner/cart",
     icon: ShoppingCart,
+    countKey: "cart",
   },
   {
     title: "Orders",
@@ -84,6 +92,10 @@ const OwnerLayout = () => {
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [shopCounts, setShopCounts] = useState({
+    cart: 0,
+    wishlist: 0,
+  });
   const [storedUser, setStoredUser] = useState(() =>
     JSON.parse(localStorage.getItem("user") || "{}")
   );
@@ -120,6 +132,33 @@ const OwnerLayout = () => {
       window.removeEventListener("owner-profile-updated", syncUser);
       window.removeEventListener("storage", syncUser);
       window.removeEventListener("focus", refreshUser);
+    };
+  }, []);
+
+  useEffect(() => {
+    const refreshShopCounts = async () => {
+      try {
+        const [cartRes, wishlistRes] = await Promise.all([
+          api.get("/cart/summary").catch(() => ({ data: { summary: {} } })),
+          api.get("/wishlist/summary").catch(() => ({ data: { summary: {} } })),
+        ]);
+
+        setShopCounts({
+          cart: cartRes.data.summary?.totalItems || 0,
+          wishlist: wishlistRes.data.summary?.totalItems || 0,
+        });
+      } catch {
+        setShopCounts({ cart: 0, wishlist: 0 });
+      }
+    };
+
+    refreshShopCounts();
+    window.addEventListener("owner-shop-counts-updated", refreshShopCounts);
+    window.addEventListener("focus", refreshShopCounts);
+
+    return () => {
+      window.removeEventListener("owner-shop-counts-updated", refreshShopCounts);
+      window.removeEventListener("focus", refreshShopCounts);
     };
   }, []);
 
@@ -225,7 +264,12 @@ const OwnerLayout = () => {
                 className={navLinkClass}
               >
                 <Icon size={20} />
-                {item.title}
+                <span className="min-w-0 flex-1">{item.title}</span>
+                {item.countKey && (
+                  <span className="rounded-full bg-slate-950/25 px-2 py-0.5 text-xs font-bold">
+                    {shopCounts[item.countKey]}
+                  </span>
+                )}
               </NavLink>
             );
           })}
@@ -297,6 +341,30 @@ const OwnerLayout = () => {
           </div>
 
           <div className="flex items-center gap-2 sm:gap-4">
+            <button
+              type="button"
+              onClick={() => navigate("/owner/shop/wishlist")}
+              className="relative rounded-xl border border-white/10 p-2.5 text-slate-400 transition hover:bg-white/5 hover:text-white"
+              title="Wishlist"
+            >
+              <Heart size={20} />
+              <span className="absolute -right-1 -top-1 min-w-5 rounded-full bg-cyan-400 px-1.5 py-0.5 text-center text-[10px] font-bold text-slate-950 ring-2 ring-slate-950">
+                {shopCounts.wishlist}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => navigate("/owner/cart")}
+              className="relative rounded-xl border border-white/10 p-2.5 text-slate-400 transition hover:bg-white/5 hover:text-white"
+              title="Cart"
+            >
+              <ShoppingCart size={20} />
+              <span className="absolute -right-1 -top-1 min-w-5 rounded-full bg-cyan-400 px-1.5 py-0.5 text-center text-[10px] font-bold text-slate-950 ring-2 ring-slate-950">
+                {shopCounts.cart}
+              </span>
+            </button>
+
             {/* Notification */}
             <button
               type="button"
