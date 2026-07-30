@@ -5,7 +5,7 @@ import { authorize } from "../middleware/roleMiddleware.js";
 import upload from "../middleware/uploadMiddleware.js";
 
 import {
-    createCategory, getAllCategories, getCategoryById, updateCategory, deleteCategory,uploadCategoryImage,
+    createCategory, getAllCategories, getCategoryById, updateCategory, deleteCategory,uploadCategoryImage, deleteCategoryImage,
 } from "../controllers/categoryController.js";
 
 
@@ -19,5 +19,6 @@ router.put("/:id", protect, authorize("admin"), updateCategory);
 router.delete("/:id", protect, authorize("admin"), deleteCategory);
 
 router.post("/:id/upload-image", protect,authorize("admin"),upload.single("image"), uploadCategoryImage);
+router.delete("/:id/image", protect, authorize("admin"), deleteCategoryImage);
 
 export default router;

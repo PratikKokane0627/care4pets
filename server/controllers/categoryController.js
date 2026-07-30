@@ -2,8 +2,11 @@ import mongoose from "mongoose";
 import Category from "../models/Category.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import ApiError from "../utils/ApiError.js";
-import cloudinary from "../config/cloudinary.js";
+import deleteUploadedImage from "../utils/deleteUploadedImage.js";
 import uploadToCloudinary from "../utils/uploadToCloudinary.js";
+
+const escapeRegex = (value) =>
+  value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 export const createCategory = asyncHandler(async (req, res) => {
   const { categoryName, description } = req.body || {};
@@ -12,22 +15,24 @@ export const createCategory = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Category name is required");
   }
 
+  const normalizedName = categoryName.trim();
   const existingCategory = await Category.findOne({
     categoryName: {
-      $regex: `^${categoryName.trim()}$`,
+      $regex: `^${escapeRegex(normalizedName)}$`,
       $options: "i",
     },
-    isActive: true,
   });
 
-  if (existingCategory) {
+  if (existingCategory?.isActive) {
     throw new ApiError(409, "Category already exists");
   }
 
-  const category = await Category.create({
-    categoryName: categoryName.trim(),
-    description: description?.trim() || "",
-  });
+  const category = existingCategory || new Category();
+  category.categoryName = normalizedName;
+  category.description = description?.trim() || "";
+  category.isActive = true;
+
+  await category.save();
 
   res.status(201).json({
     success: true,
@@ -158,20 +163,24 @@ export const updateCategory = asyncHandler(async (req, res) => {
       throw new ApiError(400, "Category name cannot be empty");
     }
 
+    const normalizedName = categoryName.trim();
     const duplicateCategory = await Category.findOne({
       _id: { $ne: id },
       categoryName: {
-        $regex: `^${categoryName.trim()}$`,
+        $regex: `^${escapeRegex(normalizedName)}$`,
         $options: "i",
       },
-      isActive: true,
     });
 
-    if (duplicateCategory) {
+    if (duplicateCategory?.isActive) {
       throw new ApiError(409, "Category already exists");
     }
 
-    category.categoryName = categoryName.trim();
+    if (duplicateCategory) {
+      await Category.deleteOne({ _id: duplicateCategory._id, isActive: false });
+    }
+
+    category.categoryName = normalizedName;
   }
 
   if (description !== undefined) {
@@ -238,12 +247,13 @@ export const uploadCategoryImage = asyncHandler(async (req, res) => {
   // Upload image to Cloudinary
   const uploadedImage = await uploadToCloudinary(
     req.file.buffer,
-    "care4pets/categories"
+    "care4pets/categories",
+    req.file.mimetype
   );
 
   // Delete old image if it exists
   if (category.image?.publicId) {
-    await deleteImageFromCloudinary(category.image.publicId);
+    await deleteUploadedImage(category.image.publicId);
   }
 
   category.image = {
@@ -256,6 +266,40 @@ export const uploadCategoryImage = asyncHandler(async (req, res) => {
   res.status(200).json({
     success: true,
     message: "Category image uploaded successfully",
+    image: category.image,
+  });
+});
+
+export const deleteCategoryImage = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    throw new ApiError(400, "Invalid category ID");
+  }
+
+  const category = await Category.findOne({
+    _id: id,
+    isActive: true,
+  });
+
+  if (!category) {
+    throw new ApiError(404, "Category not found");
+  }
+
+  if (category.image?.publicId) {
+    await deleteUploadedImage(category.image.publicId);
+  }
+
+  category.image = {
+    url: "",
+    publicId: "",
+  };
+
+  await category.save();
+
+  res.status(200).json({
+    success: true,
+    message: "Category image deleted successfully",
     image: category.image,
   });
 });

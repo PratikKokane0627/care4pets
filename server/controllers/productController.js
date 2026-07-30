@@ -2,9 +2,8 @@ import mongoose from "mongoose";
 import Product from "../models/Product.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import ApiError from "../utils/ApiError.js";
-import cloudinary from "../config/cloudinary.js";
 import uploadToCloudinary from "../utils/uploadToCloudinary.js";
-import deleteFromCloudinary from "../utils/deleteFromCloudinary.js";
+import deleteUploadedImage from "../utils/deleteUploadedImage.js";
 import Category from "../models/Category.js";
 
 export const createProduct = asyncHandler(async (req, res) => {
@@ -542,7 +541,8 @@ export const uploadProductImages = asyncHandler(
       for (const file of req.files) {
         const result = await uploadToCloudinary(
           file.buffer,
-          "care4pets/products"
+          "care4pets/products",
+          file.mimetype
         );
 
         uploadedImages.push({
@@ -557,7 +557,7 @@ export const uploadProductImages = asyncHandler(
     } catch (error) {
       await Promise.allSettled(
         uploadedImages.map((image) =>
-          deleteFromCloudinary(image.publicId)
+          deleteUploadedImage(image.publicId)
         )
       );
 
@@ -604,13 +604,13 @@ export const deleteProductImage = asyncHandler(async (req, res) => {
     throw new ApiError(404, "Product image not found");
   }
 
-  const cloudinaryResult = await deleteFromCloudinary(
+  const deleteResult = await deleteUploadedImage(
     publicId.trim()
   );
 
   if (
-    cloudinaryResult?.result &&
-    !["ok", "not found"].includes(cloudinaryResult.result)
+    deleteResult?.result &&
+    !["ok", "not found"].includes(deleteResult.result)
   ) {
     throw new ApiError(
       500,

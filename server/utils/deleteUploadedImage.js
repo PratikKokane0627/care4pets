@@ -11,6 +11,10 @@ const publicDir = path.resolve(__dirname, "../public");
 const deleteUploadedImage = async (publicId) => {
   if (!publicId) return null;
 
+  if (publicId.startsWith("seed:")) {
+    return { result: "ok" };
+  }
+
   if (publicId.startsWith("local:")) {
     const relativePath = publicId.slice("local:".length);
     const absolutePath = path.resolve(publicDir, relativePath);

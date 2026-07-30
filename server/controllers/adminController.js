@@ -2,10 +2,12 @@ import bcrypt from "bcryptjs";
 import mongoose from "mongoose";
 
 import Appointment from "../models/Appointment.js";
-// Payment code temporarily disabled.
-// import GroomingBooking from "../models/GroomingBooking.js";
+import GroomingBooking from "../models/GroomingBooking.js";
 import Order from "../models/Order.js";
+import Pet from "../models/Pet.js";
+import Product from "../models/Product.js";
 import User from "../models/User.js";
+import Vaccination from "../models/Vaccination.js";
 import VetProfile from "../models/VetProfile.js";
 import GroomerProfile from "../models/GroomerProfile.js";
 import ApiError from "../utils/ApiError.js";
@@ -61,19 +63,49 @@ export const getDashboard = asyncHandler(async (req, res) => {
   const [
     totalUsers,
     activeUsers,
+    totalPets,
     pendingVets,
     totalVets,
     totalGroomers,
     totalAppointments,
+    totalBookings,
+    totalProducts,
     totalOrders,
+    revenue,
+    recentUsers,
+    recentAppointments,
   ] = await Promise.all([
     User.countDocuments(),
     User.countDocuments({ status: "active" }),
+    Pet.countDocuments({ isActive: true }),
     VetProfile.countDocuments({ status: "pending" }),
     User.countDocuments({ role: "vet" }),
     User.countDocuments({ role: "groomer" }),
     Appointment.countDocuments(),
+    GroomingBooking.countDocuments({ isActive: true }),
+    Product.countDocuments({ isActive: true }),
     Order.countDocuments(),
+    Order.aggregate([
+      { $match: { paymentStatus: { $in: ["Paid", "paid"] } } },
+      { $group: { _id: null, total: { $sum: "$totalAmount" } } },
+    ]),
+    User.find()
+      .select("name email role status createdAt profileImage")
+      .sort({ createdAt: -1 })
+      .limit(5),
+    Appointment.find()
+      .populate("ownerId", "name email")
+      .populate("petId", "petName species")
+      .populate({
+        path: "vetId",
+        select: "userId clinicName",
+        populate: {
+          path: "userId",
+          select: "name email",
+        },
+      })
+      .sort({ createdAt: -1 })
+      .limit(5),
   ]);
 
   res.json({
@@ -82,11 +114,110 @@ export const getDashboard = asyncHandler(async (req, res) => {
       users: { total: totalUsers, active: activeUsers },
       vets: { total: totalVets, pendingApproval: pendingVets },
       groomers: totalGroomers,
+      pets: totalPets,
       appointments: totalAppointments,
+      groomingBookings: totalBookings,
+      products: totalProducts,
       orders: totalOrders,
-      // Payment code temporarily disabled.
-      // paidOrderRevenue: revenue[0]?.total || 0,
+      revenue: revenue[0]?.total || 0,
+      recentUsers,
+      recentAppointments,
     },
+  });
+});
+
+export const getPets = asyncHandler(async (req, res) => {
+  const { page, limit, skip } = parsePagination(req.query);
+  const filter = { isActive: true };
+
+  if (req.query.species) filter.species = req.query.species;
+  if (req.query.vaccinationStatus) {
+    filter.vaccinationStatus = req.query.vaccinationStatus;
+  }
+  if (req.query.search?.trim()) {
+    const search = new RegExp(escapeRegex(req.query.search.trim()), "i");
+    filter.$or = [{ petName: search }, { species: search }, { breed: search }];
+  }
+
+  const [pets, total] = await Promise.all([
+    Pet.find(filter)
+      .populate("ownerId", "name email phone")
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit),
+    Pet.countDocuments(filter),
+  ]);
+
+  res.json({ success: true, pets, pagination: pagination(page, limit, total) });
+});
+
+export const getPetById = asyncHandler(async (req, res) => {
+  assertObjectId(req.params.id, "pet");
+
+  const pet = await Pet.findOne({ _id: req.params.id, isActive: true }).populate(
+    "ownerId",
+    "name email phone"
+  );
+  if (!pet) throw new ApiError(404, "Pet not found");
+
+  const [medicalHistory, vaccinations] = await Promise.all([
+    Appointment.find({ petId: pet._id, isActive: true })
+      .populate({ path: "vetId", populate: { path: "userId", select: "name email" } })
+      .sort({ appointmentDate: -1 })
+      .limit(20),
+    Vaccination.find({ petId: pet._id, isActive: true })
+      .sort({ nextDueDate: 1 })
+      .limit(20),
+  ]);
+
+  res.json({ success: true, pet, medicalHistory, vaccinations });
+});
+
+export const getVaccinations = asyncHandler(async (req, res) => {
+  const { page, limit, skip } = parsePagination(req.query);
+  const filter = { isActive: true };
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  if (req.query.status === "upcoming") {
+    filter.nextDueDate = { $gte: today };
+    filter.status = { $ne: "completed" };
+  } else if (req.query.status === "overdue") {
+    filter.nextDueDate = { $lt: today };
+    filter.status = { $ne: "completed" };
+  } else if (req.query.status) {
+    filter.status = req.query.status;
+  }
+
+  if (req.query.search?.trim()) {
+    const search = new RegExp(escapeRegex(req.query.search.trim()), "i");
+    filter.vaccineName = search;
+  }
+
+  const [vaccinations, total] = await Promise.all([
+    Vaccination.find(filter)
+      .populate("ownerId", "name email phone")
+      .populate("petId", "petName species breed profileImage")
+      .sort({ nextDueDate: 1 })
+      .skip(skip)
+      .limit(limit),
+    Vaccination.countDocuments(filter),
+  ]);
+
+  res.json({
+    success: true,
+    vaccinations: vaccinations.map((item) => {
+      const due = new Date(item.nextDueDate);
+      const days = Math.ceil((due - today) / (1000 * 60 * 60 * 24));
+      return {
+        ...item.toObject(),
+        calculatedStatus:
+          item.status === "completed" ? "completed" : days < 0 ? "overdue" : "upcoming",
+        daysRemaining: days >= 0 ? days : undefined,
+        overdueDays: days < 0 ? Math.abs(days) : undefined,
+      };
+    }),
+    pagination: pagination(page, limit, total),
   });
 });
 
@@ -173,6 +304,19 @@ export const getVets = asyncHandler(async (req, res) => {
   ]);
 
   res.json({ success: true, vets, pagination: pagination(page, limit, total) });
+});
+
+export const getVetByIdAdmin = asyncHandler(async (req, res) => {
+  assertObjectId(req.params.id, "veterinarian");
+
+  const vet = await VetProfile.findById(req.params.id).populate(
+    "userId",
+    "name email phone role status isVerified profileImage address createdAt"
+  );
+
+  if (!vet) throw new ApiError(404, "Veterinarian not found");
+
+  res.json({ success: true, vet });
 });
 
 const setVetApproval = (profileStatus, userStatus, message) =>
@@ -301,6 +445,84 @@ export const getAppointments = asyncHandler(async (req, res) => {
     appointments,
     pagination: pagination(page, limit, total),
   });
+});
+
+export const updateAppointmentAdmin = asyncHandler(async (req, res) => {
+  assertObjectId(req.params.id, "appointment");
+  const allowedStatuses = ["pending", "accepted", "rejected", "cancelled", "completed"];
+  const updates = {};
+
+  if (req.body.status !== undefined) {
+    if (!allowedStatuses.includes(req.body.status)) {
+      throw new ApiError(400, `Status must be one of: ${allowedStatuses.join(", ")}`);
+    }
+    updates.status = req.body.status;
+    if (req.body.status === "completed") updates.completedAt = new Date();
+  }
+
+  if (req.body.appointmentDate !== undefined) {
+    const appointmentDate = new Date(req.body.appointmentDate);
+    if (Number.isNaN(appointmentDate.getTime())) {
+      throw new ApiError(400, "Invalid appointment date");
+    }
+    updates.appointmentDate = appointmentDate;
+  }
+
+  if (req.body.appointmentTime !== undefined) {
+    updates.appointmentTime = req.body.appointmentTime;
+  }
+
+  if (req.body.rejectionReason !== undefined) {
+    updates.rejectionReason = req.body.rejectionReason;
+  }
+
+  if (!Object.keys(updates).length) {
+    throw new ApiError(400, "No appointment updates provided");
+  }
+
+  const appointment = await Appointment.findByIdAndUpdate(req.params.id, updates, {
+    returnDocument: "after",
+    runValidators: true,
+  })
+    .populate("ownerId", "name email phone")
+    .populate("petId", "petName species breed")
+    .populate({ path: "vetId", populate: { path: "userId", select: "name email" } });
+
+  if (!appointment) throw new ApiError(404, "Appointment not found");
+
+  res.json({ success: true, message: "Appointment updated", appointment });
+});
+
+export const updateGroomingBookingAdmin = asyncHandler(async (req, res) => {
+  assertObjectId(req.params.id, "grooming booking");
+  const allowedStatuses = ["pending", "accepted", "rejected", "cancelled", "completed"];
+
+  if (!allowedStatuses.includes(req.body.status)) {
+    throw new ApiError(400, `Status must be one of: ${allowedStatuses.join(", ")}`);
+  }
+
+  const updates = { status: req.body.status };
+  if (req.body.status === "cancelled") {
+    updates.cancellationReason = req.body.cancellationReason || "Cancelled by admin";
+    updates.cancelledAt = new Date();
+  }
+  if (req.body.status === "completed") {
+    updates.completedAt = new Date();
+  }
+
+  const booking = await GroomingBooking.findOneAndUpdate(
+    { _id: req.params.id, isActive: true },
+    updates,
+    { returnDocument: "after", runValidators: true }
+  )
+    .populate("ownerId", "name email phone")
+    .populate("petId", "petName species breed")
+    .populate("serviceId", "serviceName category duration price")
+    .populate("groomerId", "name email phone");
+
+  if (!booking) throw new ApiError(404, "Grooming booking not found");
+
+  res.json({ success: true, message: "Grooming booking updated", booking });
 });
 
 // Payment code temporarily disabled.
