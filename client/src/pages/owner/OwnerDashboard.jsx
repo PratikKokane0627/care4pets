@@ -117,17 +117,33 @@ const OwnerDashboard = () => {
   const [pets, setPets] = useState([]);
   const [appointments, setAppointments] = useState([]);
   const [vaccinations, setVaccinations] = useState([]);
+  const [upcomingVaccinationReminders, setUpcomingVaccinationReminders] = useState([]);
+  const [overdueVaccinationReminders, setOverdueVaccinationReminders] = useState([]);
 
   const { loading } = useFetch(async () => {
-    const [petsRes, appointmentsRes, vaccinationsRes] = await Promise.all([
+    const [
+      petsRes,
+      appointmentsRes,
+      vaccinationsRes,
+      upcomingVaccinationsRes,
+      overdueVaccinationsRes,
+    ] = await Promise.all([
       api.get("/pets"),
       api.get("/appointments").catch(() => ({ data: [] })),
       api.get("/vaccinations").catch(() => ({ data: [] })),
+      api.get("/vaccinations/upcoming").catch(() => ({ data: [] })),
+      api.get("/vaccinations/overdue").catch(() => ({ data: [] })),
     ]);
 
     setPets(toArray(petsRes.data, ["pets"]));
     setAppointments(toArray(appointmentsRes.data, ["appointments"]));
     setVaccinations(toArray(vaccinationsRes.data, ["vaccinations"]));
+    setUpcomingVaccinationReminders(
+      toArray(upcomingVaccinationsRes.data, ["vaccinations"])
+    );
+    setOverdueVaccinationReminders(
+      toArray(overdueVaccinationsRes.data, ["vaccinations"])
+    );
   }, "owner-dashboard");
 
   const ownerName = storedUser.name?.split(" ")[0] || "Pet Owner";
@@ -136,9 +152,16 @@ const OwnerDashboard = () => {
       String(item.status).toLowerCase()
     )
   );
-  const upcomingVaccinations = vaccinations.filter(
-    (item) => item.nextDueDate || String(item.status).toLowerCase() !== "completed"
-  );
+  const dueVaccinations = upcomingVaccinationReminders.length
+    ? upcomingVaccinationReminders
+    : vaccinations.filter(
+        (item) =>
+          item.nextDueDate || String(item.status).toLowerCase() !== "completed"
+      );
+  const reminderVaccinations = [
+    ...overdueVaccinationReminders,
+    ...dueVaccinations,
+  ];
 
   return (
     <main>
@@ -146,7 +169,7 @@ const OwnerDashboard = () => {
         <p className="text-sm font-semibold text-cyan-400">Owner Dashboard</p>
 
         <h1 className="mt-1 text-3xl font-bold text-white sm:text-4xl">
-          Welcome back, {ownerName}!
+          Welcome back, {ownerName}
         </h1>
 
         <p className="mt-2 text-slate-400">
@@ -173,8 +196,15 @@ const OwnerDashboard = () => {
 
         <StatCard
           title="Vaccinations"
-          value={upcomingVaccinations.length || vaccinations.length}
-          description="Upcoming vaccination doses"
+          value={
+            dueVaccinations.length + overdueVaccinationReminders.length ||
+            vaccinations.length
+          }
+          description={
+            overdueVaccinationReminders.length
+              ? `${overdueVaccinationReminders.length} overdue doses`
+              : "Upcoming vaccination doses"
+          }
           icon={Syringe}
           iconClass="bg-amber-500/15 text-amber-400"
         />
@@ -378,14 +408,18 @@ const OwnerDashboard = () => {
             onClick={() => navigate("/owner/vaccinations")}
           />
 
-          {vaccinations.length === 0 ? (
+          {reminderVaccinations.length === 0 ? (
             <EmptyState
               title="No reminders"
               description="Upcoming vaccine reminders will appear here."
             />
           ) : (
             <div className="space-y-4">
-              {vaccinations.slice(0, 3).map((vaccination) => (
+              {reminderVaccinations.slice(0, 3).map((vaccination) => {
+                const reminderStatus =
+                  vaccination.calculatedStatus || vaccination.status || "Upcoming";
+
+                return (
                 <article
                   key={getId(vaccination)}
                   className="flex items-start gap-4 rounded-xl border border-white/10 bg-slate-950/60 p-4 transition hover:-translate-y-1 hover:border-cyan-400/40"
@@ -408,10 +442,10 @@ const OwnerDashboard = () => {
 
                       <span
                         className={`rounded-full px-3 py-1 text-xs font-semibold ${statusClass(
-                          vaccination.status || "Upcoming"
+                          reminderStatus
                         )}`}
                       >
-                        {vaccination.status || "Upcoming"}
+                        {reminderStatus}
                       </span>
                     </div>
 
@@ -421,7 +455,8 @@ const OwnerDashboard = () => {
                     </p>
                   </div>
                 </article>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 
 import EmptyState from "../../../components/owner/EmptyState";
 import Loader from "../../../components/owner/Loader";
@@ -9,6 +9,7 @@ import useFetch from "../../../hooks/useFetch";
 import api from "../../../services/api";
 import {
   ErrorState,
+  Button,
   InfoBlock,
   Panel,
   formatDate,
@@ -53,6 +54,14 @@ const PetDetails = () => {
             <div className="mt-5 flex items-center justify-between">
               <h2 className="text-xl font-bold text-white">{petName(pet)}</h2>
               <StatusBadge status={pet.vaccinationStatus} />
+            </div>
+            <div className="mt-5 grid gap-3">
+              <Button as={Link} to={`/owner/appointments/book?petId=${id}`}>
+                Book Appointment
+              </Button>
+              <Button as={Link} to={`/owner/grooming/book?petId=${id}`} variant="ghost">
+                Book Grooming
+              </Button>
             </div>
           </Panel>
 

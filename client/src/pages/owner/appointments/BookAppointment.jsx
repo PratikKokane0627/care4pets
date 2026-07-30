@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { toast } from "react-hot-toast";
+import { useSearchParams } from "react-router-dom";
 
 import EmptyState from "../../../components/owner/EmptyState";
 import Loader from "../../../components/owner/Loader";
@@ -19,9 +20,16 @@ import {
 } from "../ownerShared";
 
 const BookAppointment = () => {
+  const [searchParams] = useSearchParams();
+  const initialVetId = searchParams.get("vetId") || "";
+  const initialPetId = searchParams.get("petId") || "";
   const [pets, setPets] = useState([]);
   const [vets, setVets] = useState([]);
-  const [form, setForm] = useState(initialAppointmentForm);
+  const [form, setForm] = useState({
+    ...initialAppointmentForm,
+    petId: initialPetId,
+    vetId: initialVetId,
+  });
   const [saving, setSaving] = useState(false);
 
   const { loading, error } = useFetch(async () => {

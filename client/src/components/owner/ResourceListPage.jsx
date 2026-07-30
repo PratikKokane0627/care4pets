@@ -12,7 +12,7 @@ import {
   toArray,
 } from "../../pages/owner/ownerShared";
 import EmptyState from "./EmptyState";
-import Loader from "./Loader";
+import { SkeletonCards } from "./Loader";
 import PageHeader from "./PageHeader";
 import StatusBadge from "./StatusBadge";
 
@@ -35,6 +35,9 @@ const ResourceListPage = ({
   renderFooter,
   renderBeforeList,
   detailPath,
+  emptyAction,
+  filterItem,
+  highlightItem,
 }) => {
   const [items, setItems] = useState([]);
   const [query, setQuery] = useState("");
@@ -48,16 +51,17 @@ const ResourceListPage = ({
 
   const filteredItems = useMemo(() => {
     const normalized = query.trim().toLowerCase();
-    if (!normalized) return items;
+    const scopedItems = items.filter((item) => filterItem?.(item) ?? true);
+    if (!normalized) return scopedItems;
 
-    return items.filter((item) =>
-      [getTitle(item), getSubtitle(item), ...getMeta(item)]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase()
-        .includes(normalized)
-    );
-  }, [getMeta, getSubtitle, getTitle, items, query]);
+    return scopedItems.filter((item) =>
+        [getTitle(item), getSubtitle(item), ...getMeta(item)]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase()
+          .includes(normalized)
+      );
+  }, [filterItem, getMeta, getSubtitle, getTitle, items, query]);
 
   return (
     <main>
@@ -78,11 +82,11 @@ const ResourceListPage = ({
 
         {loading ? (
           <div className="mt-5">
-            <Loader />
+            <SkeletonCards />
           </div>
         ) : filteredItems.length === 0 ? (
           <div className="mt-5">
-            <EmptyState title={emptyTitle} message={emptyMessage} />
+            <EmptyState title={emptyTitle} message={emptyMessage} action={emptyAction} />
           </div>
         ) : (
           <div className="mt-5 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
@@ -95,7 +99,11 @@ const ResourceListPage = ({
               return (
                 <article
                   key={id || index}
-                  className="group overflow-hidden rounded-2xl border border-white/10 bg-slate-950 transition duration-300 hover:-translate-y-1 hover:border-cyan-300/30 hover:shadow-2xl hover:shadow-cyan-950/20"
+                  className={`group overflow-hidden rounded-2xl border bg-slate-950 transition duration-300 hover:-translate-y-1 hover:border-cyan-300/30 hover:shadow-2xl hover:shadow-cyan-950/20 ${
+                    highlightItem?.(item)
+                      ? "border-emerald-400/60 shadow-xl shadow-emerald-950/20"
+                      : "border-white/10"
+                  }`}
                 >
                   {image && (
                     <div className="aspect-[16/9] overflow-hidden bg-slate-900">
@@ -126,7 +134,7 @@ const ResourceListPage = ({
                       ))}
                     </div>
 
-                    <div className="mt-5 flex flex-wrap gap-2">
+                    <div className="mt-5 flex flex-wrap gap-2 max-sm:[&>*]:w-full">
                       {id && detailPath !== null && (
                         <Link
                           to={detailPath ? detailPath(item) : `${id}`}

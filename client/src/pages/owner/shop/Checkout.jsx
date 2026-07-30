@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { toast } from "react-hot-toast";
+import { useNavigate } from "react-router-dom";
 
 import PageHeader from "../../../components/owner/PageHeader";
 import api from "../../../services/api";
 import { Button, Field, Panel, notifyOwnerShopCounts } from "../ownerShared";
 
 const Checkout = () => {
+  const navigate = useNavigate();
   const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
   const [saving, setSaving] = useState(false);
   const [shipping, setShipping] = useState({
@@ -23,9 +25,15 @@ const Checkout = () => {
     event.preventDefault();
     setSaving(true);
     try {
-      await api.post("/orders", { shippingAddress: shipping, paymentMethod: "COD" });
+      const response = await api.post("/orders", { shippingAddress: shipping, paymentMethod: "COD" });
       toast.success("Order placed");
       notifyOwnerShopCounts();
+      navigate("/owner/orders", {
+        state: {
+          orderPlaced: true,
+          orderId: response.data.order?._id || response.data.order?.id,
+        },
+      });
     } catch (err) {
       toast.error(err.response?.data?.message || "Could not place order");
     } finally {

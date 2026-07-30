@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { toast } from "react-hot-toast";
+import { useSearchParams } from "react-router-dom";
 
 import EmptyState from "../../../components/owner/EmptyState";
 import Loader from "../../../components/owner/Loader";
@@ -19,9 +20,16 @@ import {
 } from "../ownerShared";
 
 const BookGrooming = () => {
+  const [searchParams] = useSearchParams();
+  const initialServiceId = searchParams.get("serviceId") || "";
+  const initialPetId = searchParams.get("petId") || "";
   const [pets, setPets] = useState([]);
   const [services, setServices] = useState([]);
-  const [form, setForm] = useState(initialGroomingForm);
+  const [form, setForm] = useState({
+    ...initialGroomingForm,
+    petId: initialPetId,
+    serviceId: initialServiceId,
+  });
   const [saving, setSaving] = useState(false);
 
   const { loading, error } = useFetch(async () => {

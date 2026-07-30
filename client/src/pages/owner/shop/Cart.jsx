@@ -59,6 +59,11 @@ const Cart = () => {
       imageFallback="https://images.unsplash.com/photo-1583337130417-3346a1be7dee?auto=format&fit=crop&w=900&q=80"
       emptyTitle="Cart is empty"
       emptyMessage="Add shop products to your cart."
+      emptyAction={
+        <Button as={Link} to="/owner/shop">
+          Browse Shop
+        </Button>
+      }
       detailPath={(item) => `/owner/shop/${getId(cartProduct(item))}`}
       action={
         <Button as={Link} to="/owner/checkout">

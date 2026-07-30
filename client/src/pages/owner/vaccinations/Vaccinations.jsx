@@ -149,7 +149,15 @@ const Vaccinations = () => {
         {loading ? (
           <EmptyState title="Loading vaccinations" description="Fetching vaccination records." />
         ) : vaccinations.length === 0 ? (
-          <EmptyState title="No records" description="Add your first vaccination record." />
+          <EmptyState
+            title="No records"
+            description="Add your first vaccination record."
+            action={
+              <Button onClick={() => { setEditingId(""); setForm(initialForm); setShowForm(true); }}>
+                <Plus size={17} /> Add Record
+              </Button>
+            }
+          />
         ) : (
           <div className="space-y-4">
             {vaccinations.map((item) => (

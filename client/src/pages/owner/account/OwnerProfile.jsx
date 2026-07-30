@@ -17,7 +17,17 @@ import {
 
 const OwnerProfile = () => {
   const [user, setUser] = useState(() => JSON.parse(localStorage.getItem("user") || "{}"));
-  const [form, setForm] = useState({ name: "", email: "", phone: "" });
+  const [form, setForm] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    address: {
+      street: "",
+      city: "",
+      state: "",
+      zipCode: "",
+    },
+  });
   const [selectedImage, setSelectedImage] = useState(null);
   const [saving, setSaving] = useState(false);
   const [imageSaving, setImageSaving] = useState(false);
@@ -39,11 +49,25 @@ const OwnerProfile = () => {
       name: nextUser.name || "",
       email: nextUser.email || "",
       phone: nextUser.phone || "",
+      address: {
+        street: nextUser.address?.street || "",
+        city: nextUser.address?.city || "",
+        state: nextUser.address?.state || "",
+        zipCode: nextUser.address?.zipCode || "",
+      },
     });
     syncStoredUser(nextUser);
   }, "owner-profile");
 
   const setField = (field, value) => setForm((current) => ({ ...current, [field]: value }));
+  const setAddressField = (field, value) =>
+    setForm((current) => ({
+      ...current,
+      address: {
+        ...current.address,
+        [field]: value,
+      },
+    }));
 
   const updateProfile = async (event) => {
     event.preventDefault();
@@ -135,6 +159,10 @@ const OwnerProfile = () => {
           <Field label="Name" value={form.name} onChange={(value) => setField("name", value)} required />
           <Field label="Email" type="email" value={form.email} onChange={(value) => setField("email", value)} required />
           <Field label="Phone" value={form.phone} onChange={(value) => setField("phone", value)} required />
+          <Field className="md:col-span-2" label="Street address" value={form.address.street} onChange={(value) => setAddressField("street", value)} />
+          <Field label="City" value={form.address.city} onChange={(value) => setAddressField("city", value)} />
+          <Field label="State" value={form.address.state} onChange={(value) => setAddressField("state", value)} />
+          <Field label="Zip code" value={form.address.zipCode} onChange={(value) => setAddressField("zipCode", value)} />
           <div className="md:col-span-2">
             <Button type="submit" disabled={saving}>{saving ? "Updating..." : "Update Profile"}</Button>
           </div>

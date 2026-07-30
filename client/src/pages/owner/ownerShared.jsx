@@ -1,3 +1,4 @@
+/* oxlint-disable react/only-export-components */
 import { Search } from "lucide-react";
 
 export const toArray = (payload, keys = []) => {

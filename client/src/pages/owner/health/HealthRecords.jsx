@@ -1,5 +1,7 @@
+import { Link } from "react-router-dom";
+
 import ResourceListPage from "../../../components/owner/ResourceListPage";
-import { formatDate, petName, vetName } from "../ownerShared";
+import { Button, formatDate, getId, petName, vetName } from "../ownerShared";
 
 const HealthRecords = () => (
   <ResourceListPage
@@ -16,8 +18,14 @@ const HealthRecords = () => (
       `Prescription: ${record.prescription || "Not added"}`,
     ]}
     getStatus={() => "completed"}
+    detailPath={(record) => `/owner/appointments/${getId(record)}`}
     emptyTitle="No health records yet"
     emptyMessage="Completed veterinary appointments will create health records."
+    emptyAction={
+      <Button as={Link} to="/owner/appointments/book">
+        Book Appointment
+      </Button>
+    }
   />
 );
 

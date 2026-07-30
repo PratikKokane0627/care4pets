@@ -222,7 +222,11 @@ const MyPets = ({ defaultShowForm = false }) => {
         {loading ? (
           <EmptyState title="Loading pets" description="Fetching your pet profiles." />
         ) : visiblePets.length === 0 ? (
-          <EmptyState title="No pets found" description="Add your first pet profile to begin." />
+          <EmptyState
+            title="No pets found"
+            description="Add your first pet profile to begin."
+            action={<Button onClick={() => openForm()}><Plus size={17} /> Add Pet</Button>}
+          />
         ) : (
           <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
             {visiblePets.map((pet) => (

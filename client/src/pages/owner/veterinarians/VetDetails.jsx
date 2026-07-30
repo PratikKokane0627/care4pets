@@ -31,7 +31,7 @@ const VetDetails = () => {
         title={vetName(vet)}
         description={vet?.specialization || "Veterinarian profile"}
         actions={
-          <Button as={Link} to="/owner/appointments/book">
+          <Button as={Link} to={`/owner/appointments/book?vetId=${id}`}>
             Book Appointment
           </Button>
         }
