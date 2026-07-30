@@ -54,6 +54,14 @@ const statusClass = (status = "") => {
   return "bg-cyan-500/15 text-cyan-400";
 };
 
+const formatStatus = (status = "Upcoming") =>
+  String(status)
+    .replace(/_/g, " ")
+    .split(" ")
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ");
+
 const StatCard = ({ title, value, description, icon: Icon, iconClass }) => (
   <article className="rounded-2xl border border-white/10 bg-slate-900 p-5 shadow-lg transition hover:-translate-y-1 hover:border-cyan-400/40">
     <div className="flex items-start justify-between gap-4">
@@ -109,6 +117,30 @@ const QuickAction = ({ title, description, icon: Icon, iconClass, onClick }) => 
       <span className="mt-1 block text-xs text-slate-500">{description}</span>
     </span>
   </button>
+);
+
+const vaccinationReminderClass = (status = "") => {
+  const value = String(status).toLowerCase();
+
+  if (value === "overdue") {
+    return "border-red-400/25 bg-red-500/10 text-red-300 before:bg-red-300";
+  }
+
+  if (value === "completed") {
+    return "border-emerald-400/25 bg-emerald-500/10 text-emerald-300 before:bg-emerald-300";
+  }
+
+  return "border-cyan-400/25 bg-cyan-500/10 text-cyan-300 before:bg-cyan-300";
+};
+
+const VaccinationReminderBadge = ({ status }) => (
+  <span
+    className={`inline-flex h-7 shrink-0 items-center gap-2 rounded-full border px-3 text-xs font-bold leading-none before:h-1.5 before:w-1.5 before:rounded-full ${vaccinationReminderClass(
+      status
+    )}`}
+  >
+    {formatStatus(status || "Upcoming")}
+  </span>
 );
 
 const OwnerDashboard = () => {
@@ -169,7 +201,7 @@ const OwnerDashboard = () => {
         <p className="text-sm font-semibold text-cyan-400">Owner Dashboard</p>
 
         <h1 className="mt-1 text-3xl font-bold text-white sm:text-4xl">
-          Welcome back, {ownerName}
+          Welcome back, {ownerName}👋
         </h1>
 
         <p className="mt-2 text-slate-400">
@@ -429,7 +461,7 @@ const OwnerDashboard = () => {
                   </div>
 
                   <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap justify-between gap-2">
+                    <div className="flex items-start justify-between gap-3">
                       <div>
                         <h3 className="font-semibold text-white">
                           {vaccination.vaccineName || "Vaccination"}
@@ -440,18 +472,16 @@ const OwnerDashboard = () => {
                         </p>
                       </div>
 
-                      <span
-                        className={`rounded-full px-3 py-1 text-xs font-semibold ${statusClass(
-                          reminderStatus
-                        )}`}
-                      >
-                        {reminderStatus}
-                      </span>
+                      <VaccinationReminderBadge status={reminderStatus} />
                     </div>
 
                     <p className="mt-3 flex items-center gap-2 text-sm text-slate-400">
                       <CalendarDays size={16} className="text-amber-400" />
-                      Due on {formatDate(vaccination.nextDueDate)}
+                      {vaccination.overdueDays !== undefined
+                        ? `Overdue by ${vaccination.overdueDays} days`
+                        : vaccination.daysRemaining !== undefined
+                          ? `Due in ${vaccination.daysRemaining} days`
+                          : `Due on ${formatDate(vaccination.nextDueDate)}`}
                     </p>
                   </div>
                 </article>

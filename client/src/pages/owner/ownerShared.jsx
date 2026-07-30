@@ -141,15 +141,17 @@ export const Field = ({
   type = "text",
   as = "input",
   options = [],
+  className = "",
+  inputClassName = "",
   ...props
 }) => (
-  <label className="block">
+  <label className={`block ${className}`}>
     <span className="mb-2 block text-sm font-medium text-slate-300">{label}</span>
     {as === "select" ? (
       <select
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white outline-none transition hover:border-white/25 focus:border-cyan-400"
+        className={`w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white outline-none transition hover:border-white/25 focus:border-cyan-400 ${inputClassName}`}
         {...props}
       >
         {options.map((option) => (
@@ -162,7 +164,7 @@ export const Field = ({
       <textarea
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="min-h-28 w-full resize-y rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white outline-none transition placeholder:text-slate-600 hover:border-white/25 focus:border-cyan-400"
+        className={`min-h-28 w-full resize-y rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white outline-none transition placeholder:text-slate-600 hover:border-white/25 focus:border-cyan-400 ${inputClassName}`}
         {...props}
       />
     ) : (
@@ -170,7 +172,7 @@ export const Field = ({
         type={type}
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white outline-none transition placeholder:text-slate-600 hover:border-white/25 focus:border-cyan-400"
+        className={`w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white outline-none transition placeholder:text-slate-600 hover:border-white/25 focus:border-cyan-400 ${inputClassName}`}
         {...props}
       />
     )}

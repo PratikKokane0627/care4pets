@@ -159,6 +159,12 @@ const OwnerProfile = () => {
           <Field label="Name" value={form.name} onChange={(value) => setField("name", value)} required />
           <Field label="Email" type="email" value={form.email} onChange={(value) => setField("email", value)} required />
           <Field label="Phone" value={form.phone} onChange={(value) => setField("phone", value)} required />
+          <div className="md:col-span-2">
+            <div className="mb-1 mt-2 border-t border-white/10 pt-5">
+              <h2 className="text-lg font-bold text-white">Address</h2>
+              <p className="mt-1 text-sm text-slate-500">Used for orders, appointments and service visits.</p>
+            </div>
+          </div>
           <Field className="md:col-span-2" label="Street address" value={form.address.street} onChange={(value) => setAddressField("street", value)} />
           <Field label="City" value={form.address.city} onChange={(value) => setAddressField("city", value)} />
           <Field label="State" value={form.address.state} onChange={(value) => setAddressField("state", value)} />
