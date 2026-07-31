@@ -90,7 +90,7 @@ const Shop = () => {
               className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white outline-none transition hover:border-white/25 focus:border-cyan-400"
             >
               <option value="">All pets</option>
-              {["dog", "cat", "bird", "fish", "rabbit", "other", "all"].map((type) => (
+              {["dog", "cat", "bird", "fish", "rabbit", "other"].map((type) => (
                 <option key={type} value={type}>{type}</option>
               ))}
             </select>
