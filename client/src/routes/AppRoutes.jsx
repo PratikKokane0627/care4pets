@@ -42,6 +42,19 @@ import Settings from "../pages/owner/account/Settings";
 
 import AdminLayout from "../layouts/AdminLayout";
 import AdminDashboard from "../pages/admin/AdminDashboard";
+import VetLayout from "../layouts/VetLayout";
+import VetDashboard from "../pages/vet/VetDashboard";
+import VetAppointments from "../pages/vet/appointments/VetAppointments";
+import VetAppointmentDetails from "../pages/vet/appointments/VetAppointmentDetails";
+import VetPatients from "../pages/vet/patients/VetPatients";
+import VetPatientDetails from "../pages/vet/patients/VetPatientDetails";
+import VetPrescriptions from "../pages/vet/prescriptions/VetPrescriptions";
+import VetAvailability from "../pages/vet/availability/VetAvailability";
+import VetReviews from "../pages/vet/reviews/VetReviews";
+import VetNotifications from "../pages/vet/notifications/VetNotifications";
+import VetProfilePage from "../pages/vet/profile/VetProfile";
+import EditVetProfile from "../pages/vet/profile/EditVetProfile";
+import VetChangePassword from "../pages/vet/profile/VetChangePassword";
 
 import Users from "../pages/admin/users/Users";
 import UserDetails from "../pages/admin/users/UserDetails";
@@ -134,6 +147,25 @@ const AppRoutes = () => {
           <Route path="profile/edit" element={<EditProfile />} />
           <Route path="change-password" element={<ChangePassword />} />
           <Route path="settings" element={<Settings />} />
+        </Route>
+      </Route>
+
+      {/* Protected veterinarian routes */}
+      <Route element={<ProtectedRoute allowedRole="vet" />}>
+        <Route path="/vet" element={<VetLayout />}>
+          <Route index element={<Navigate to="/vet/dashboard" replace />} />
+          <Route path="dashboard" element={<VetDashboard />} />
+          <Route path="appointments" element={<VetAppointments />} />
+          <Route path="appointments/:id" element={<VetAppointmentDetails />} />
+          <Route path="patients" element={<VetPatients />} />
+          <Route path="patients/:id" element={<VetPatientDetails />} />
+          <Route path="prescriptions" element={<VetPrescriptions />} />
+          <Route path="availability" element={<VetAvailability />} />
+          <Route path="reviews" element={<VetReviews />} />
+          <Route path="notifications" element={<VetNotifications />} />
+          <Route path="profile" element={<VetProfilePage />} />
+          <Route path="profile/edit" element={<EditVetProfile />} />
+          <Route path="change-password" element={<VetChangePassword />} />
         </Route>
       </Route>
 

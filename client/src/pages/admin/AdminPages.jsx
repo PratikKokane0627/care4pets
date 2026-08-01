@@ -16,6 +16,7 @@ import ConfirmModal from "../../components/admin/ConfirmModal";
 import ReportPanel from "../../components/admin/ReportPanel";
 import ResourceShell from "../../components/admin/ResourceShell";
 import SearchBar from "../../components/admin/SearchBar";
+import AvailabilityEditor from "../../components/vet/AvailabilityEditor";
 import api from "../../services/api";
 import {
   Button,
@@ -613,13 +614,40 @@ export const PetDetails = () => {
 
 export const VetDetails = () => {
   const { id } = useParams();
-  const { data, loading, error } = useSingle(`/admin/vets/${id}`, "vet");
+  const { data, loading, error, setData } = useSingle(`/admin/vets/${id}`, "vet");
+  const [availability, setAvailability] = useState([]);
+  const [savingAvailability, setSavingAvailability] = useState(false);
+
+  useEffect(() => {
+    if (data?.availability) setAvailability(data.availability);
+  }, [data]);
+
   if (loading) return <AdminLoader text="Loading veterinarian..." />;
   const vet = data;
   if (!vet) return <EmptyState title="Veterinarian not found" description={error} />;
   const clinicAddress = vet.clinicAddress
     ? [vet.clinicAddress.street, vet.clinicAddress.city, vet.clinicAddress.state, vet.clinicAddress.zipCode].filter(Boolean).join(", ")
     : "";
+  const availabilityChanged = JSON.stringify(availability) !== JSON.stringify(vet.availability || []);
+  const saveAvailability = async () => {
+    const invalid = availability.find((slot) => slot.isAvailable && slot.endTime <= slot.startTime);
+    if (invalid) {
+      toast.error(`${invalid.day}: end time must be later than start time`);
+      return;
+    }
+    setSavingAvailability(true);
+    try {
+      const res = await api.put(`/vets/${id}/availability`, { availability });
+      const nextAvailability = res.data.availability || availability;
+      setAvailability(nextAvailability);
+      setData((current) => ({ ...current, availability: nextAvailability }));
+      toast.success("Availability updated");
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Could not update availability");
+    } finally {
+      setSavingAvailability(false);
+    }
+  };
   return (
     <main>
       <AdminPageHeader title={userName(vet.userId) || "Veterinarian"} description="Qualification, clinic and approval information." />
@@ -632,6 +660,34 @@ export const VetDetails = () => {
         <InfoBlock label="Status" value={<StatusBadge status={vet.status} />} />
         <InfoBlock label="Address" value={clinicAddress || vet.address} />
         <InfoBlock label="Bio" value={vet.about || vet.bio} />
+      </Panel>
+      <Panel className="mt-5">
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-xl font-bold text-white">Availability</h2>
+            <p className="mt-1 text-sm text-slate-400">
+              Admin can update the weekly schedule owners use when booking appointments.
+            </p>
+          </div>
+          {availabilityChanged && (
+            <span className="rounded-full border border-amber-400/20 bg-amber-500/10 px-3 py-1 text-xs font-semibold text-amber-300">
+              Unsaved changes
+            </span>
+          )}
+        </div>
+        <AvailabilityEditor value={availability} onChange={setAvailability} />
+        <div className="mt-5 flex flex-wrap gap-3">
+          <Button onClick={saveAvailability} disabled={savingAvailability || !availabilityChanged}>
+            {savingAvailability ? "Saving..." : "Save Availability"}
+          </Button>
+          <Button
+            variant="ghost"
+            onClick={() => setAvailability(vet.availability || [])}
+            disabled={savingAvailability || !availabilityChanged}
+          >
+            Reset
+          </Button>
+        </div>
       </Panel>
     </main>
   );
