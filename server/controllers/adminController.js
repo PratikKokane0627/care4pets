@@ -250,7 +250,73 @@ export const getUserById = asyncHandler(async (req, res) => {
       ? await VetProfile.findOne({ userId: user._id })
       : null;
 
-  res.json({ success: true, user, vetProfile });
+  const appointmentFilter = {
+    $or: [
+      { ownerId: user._id },
+      ...(vetProfile ? [{ vetId: vetProfile._id }] : []),
+    ],
+  };
+
+  const groomingBookingFilter = {
+    $or: [{ ownerId: user._id }, { groomerId: user._id }],
+  };
+
+  const [
+    pets,
+    appointments,
+    groomingBookings,
+    orders,
+    petCount,
+    appointmentCount,
+    groomingBookingCount,
+    orderCount,
+  ] = await Promise.all([
+    Pet.find({ ownerId: user._id, isActive: true })
+      .select("petName species breed createdAt")
+      .sort({ createdAt: -1 })
+      .limit(5),
+    Appointment.find(appointmentFilter)
+      .populate("petId", "petName species")
+      .populate({
+        path: "vetId",
+        select: "userId clinicName",
+        populate: { path: "userId", select: "name email" },
+      })
+      .sort({ appointmentDate: -1, createdAt: -1 })
+      .limit(5),
+    GroomingBooking.find(groomingBookingFilter)
+      .populate("petId", "petName species")
+      .populate("serviceId", "serviceName")
+      .populate("groomerId", "name email")
+      .sort({ bookingDate: -1, createdAt: -1 })
+      .limit(5),
+    Order.find({ userId: user._id })
+      .select("totalAmount totalItems orderStatus paymentStatus createdAt")
+      .sort({ createdAt: -1 })
+      .limit(5),
+    Pet.countDocuments({ ownerId: user._id, isActive: true }),
+    Appointment.countDocuments(appointmentFilter),
+    GroomingBooking.countDocuments(groomingBookingFilter),
+    Order.countDocuments({ userId: user._id }),
+  ]);
+
+  res.json({
+    success: true,
+    user,
+    vetProfile,
+    activity: {
+      counts: {
+        pets: petCount,
+        appointments: appointmentCount,
+        groomingBookings: groomingBookingCount,
+        orders: orderCount,
+      },
+      pets,
+      appointments,
+      groomingBookings,
+      orders,
+    },
+  });
 });
 
 export const updateUserStatus = asyncHandler(async (req, res) => {

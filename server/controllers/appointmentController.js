@@ -394,13 +394,16 @@ export const cancelAppointment = asyncHandler(async (req, res) => {
 export const getVetAppointments = asyncHandler(async (req, res) => {
   const {
     status,
+    paymentStatus,
+    search,
+    startDate,
+    endDate,
     date,
     page = 1,
     limit = 10,
     sort = "newest",
   } = req.query;
 
-  // Find Vet Profile
   const vetProfile = await VetProfile.findOne({
     userId: req.user._id,
     isActive: true,
@@ -415,55 +418,159 @@ export const getVetAppointments = asyncHandler(async (req, res) => {
     isActive: true,
   };
 
-  // Status Filter
   if (status) {
+    const allowedStatuses = ["pending", "accepted", "rejected", "cancelled", "completed"];
+    if (!allowedStatuses.includes(status)) {
+      throw new ApiError(400, "Invalid appointment status");
+    }
     filter.status = status;
   }
 
-  // Date Filter
-  if (date) {
-    const selectedDate = new Date(date);
-
-    selectedDate.setHours(0, 0, 0, 0);
-
-    const nextDay = new Date(selectedDate);
-    nextDay.setDate(nextDay.getDate() + 1);
-
-    filter.appointmentDate = {
-      $gte: selectedDate,
-      $lt: nextDay,
-    };
+  if (paymentStatus) {
+    const allowedPaymentStatuses = ["pending", "paid", "failed", "refunded"];
+    if (!allowedPaymentStatuses.includes(paymentStatus)) {
+      throw new ApiError(400, "Invalid payment status");
+    }
+    filter.paymentStatus = paymentStatus;
   }
 
-  const pageNumber = Number(page);
-  const limitNumber = Number(limit);
+  const dateFilter = {};
+
+  if (date || startDate) {
+    const selectedDate = new Date(date || startDate);
+    if (Number.isNaN(selectedDate.getTime())) {
+      throw new ApiError(400, "Invalid start date");
+    }
+
+    selectedDate.setHours(0, 0, 0, 0);
+    dateFilter.$gte = selectedDate;
+  }
+
+  if (date) {
+    const nextDay = new Date(dateFilter.$gte);
+    nextDay.setDate(nextDay.getDate() + 1);
+    dateFilter.$lt = nextDay;
+  } else if (endDate) {
+    const selectedEndDate = new Date(endDate);
+    if (Number.isNaN(selectedEndDate.getTime())) {
+      throw new ApiError(400, "Invalid end date");
+    }
+    selectedEndDate.setHours(23, 59, 59, 999);
+    dateFilter.$lte = selectedEndDate;
+  }
+
+  if (dateFilter.$gte || dateFilter.$lte || dateFilter.$lt) {
+    if (dateFilter.$gte && dateFilter.$lte && dateFilter.$gte > dateFilter.$lte) {
+      throw new ApiError(400, "Start date cannot be after end date");
+    }
+    filter.appointmentDate = dateFilter;
+  }
+
+  const pageNumber = Math.max(Number(page) || 1, 1);
+  const limitNumber = Math.min(Math.max(Number(limit) || 10, 1), 50);
 
   const skip = (pageNumber - 1) * limitNumber;
 
-  const sortOption =
-    sort === "oldest"
-      ? { appointmentDate: 1 }
-      : { appointmentDate: -1 };
+  const sortOptions = {
+    newest: { appointmentDate: -1, appointmentTime: -1 },
+    oldest: { appointmentDate: 1, appointmentTime: 1 },
+  };
 
-  const appointments = await Appointment.find(filter)
-    .populate("ownerId", "name email phone")
-    .populate(
-      "petId",
-      "petName species breed age gender profileImage"
-    )
-    .sort(sortOption)
-    .skip(skip)
-    .limit(limitNumber);
+  const sortOption = sortOptions[sort] || sortOptions.newest;
 
-  const total = await Appointment.countDocuments(filter);
+  if (search?.trim()) {
+    if (search.length > 80) throw new ApiError(400, "Search is too long");
+    const keyword = search.trim();
+    const searchRegex = new RegExp(keyword.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+    const matchingPets = await Pet.find({
+      $or: [{ petName: searchRegex }, { species: searchRegex }, { breed: searchRegex }],
+    }).select("_id");
+    const matchingOwners = await mongoose.model("User").find({
+      $or: [{ name: searchRegex }, { email: searchRegex }],
+    }).select("_id");
+    filter.$or = [
+      { _id: mongoose.Types.ObjectId.isValid(keyword) ? keyword : undefined },
+      { reason: searchRegex },
+      { petId: { $in: matchingPets.map((pet) => pet._id) } },
+      { ownerId: { $in: matchingOwners.map((owner) => owner._id) } },
+    ].filter((condition) => !Object.values(condition).includes(undefined));
+  }
+
+  const [appointments, total] = await Promise.all([
+    Appointment.find(filter)
+      .populate("ownerId", "name email phone profileImage")
+      .populate(
+        "petId",
+        "petName species breed age gender weight color dateOfBirth profileImage vaccinationStatus"
+      )
+      .sort(sortOption)
+      .skip(skip)
+      .limit(limitNumber),
+    Appointment.countDocuments(filter),
+  ]);
 
   res.status(200).json({
     success: true,
     message: "Appointments fetched successfully",
+    count: appointments.length,
     total,
-    page: pageNumber,
-    totalPages: Math.ceil(total / limitNumber),
+    pagination: {
+      currentPage: pageNumber,
+      totalPages: Math.ceil(total / limitNumber),
+      totalAppointments: total,
+      limit: limitNumber,
+    },
     appointments,
+  });
+});
+
+export const getVetAppointmentStats = asyncHandler(async (req, res) => {
+  const vetProfile = await VetProfile.findOne({
+    userId: req.user._id,
+    isActive: true,
+  });
+
+  if (!vetProfile) {
+    throw new ApiError(404, "Veterinarian profile not found");
+  }
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+
+  const [statusCounts, todayAppointments, paidRevenue] = await Promise.all([
+    Appointment.aggregate([
+      { $match: { vetId: vetProfile._id, isActive: true } },
+      { $group: { _id: "$status", count: { $sum: 1 } } },
+    ]),
+    Appointment.countDocuments({
+      vetId: vetProfile._id,
+      isActive: true,
+      appointmentDate: { $gte: today, $lt: tomorrow },
+    }),
+    Appointment.aggregate([
+      { $match: { vetId: vetProfile._id, isActive: true, paymentStatus: "paid" } },
+      { $group: { _id: null, total: { $sum: "$consultationFee" } } },
+    ]),
+  ]);
+
+  const stats = statusCounts.reduce(
+    (acc, item) => ({ ...acc, [item._id]: item.count }),
+    {}
+  );
+
+  res.json({
+    success: true,
+    stats: {
+      todayAppointments,
+      pendingAppointments: stats.pending || 0,
+      acceptedAppointments: stats.accepted || 0,
+      rejectedAppointments: stats.rejected || 0,
+      cancelledAppointments: stats.cancelled || 0,
+      completedAppointments: stats.completed || 0,
+      paidRevenue: paidRevenue[0]?.total || 0,
+    },
   });
 });
 
@@ -567,9 +674,16 @@ export const rejectAppointment = asyncHandler(async (req, res) => {
     );
   }
 
+  const reason = rejectionReason?.trim();
+  if (!reason) {
+    throw new ApiError(400, "Rejection reason is required");
+  }
+  if (reason.length > 500) {
+    throw new ApiError(400, "Rejection reason cannot exceed 500 characters");
+  }
+
   appointment.status = "rejected";
-  appointment.rejectionReason =
-    rejectionReason?.trim() || "Rejected by veterinarian";
+  appointment.rejectionReason = reason;
 
   await appointment.save();
 
@@ -608,6 +722,10 @@ export const completeAppointment = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Diagnosis is required");
   }
 
+  if (!prescription?.trim()) {
+    throw new ApiError(400, "Prescription is required");
+  }
+
   const vetProfile = await VetProfile.findOne({
     userId: req.user._id,
     isActive: true,
@@ -639,7 +757,7 @@ export const completeAppointment = asyncHandler(async (req, res) => {
 
   appointment.status = "completed";
   appointment.diagnosis = diagnosis.trim();
-  appointment.prescription = prescription?.trim() || "";
+  appointment.prescription = prescription.trim();
   appointment.vetNotes = vetNotes?.trim() || "";
   appointment.completedAt = new Date();
 

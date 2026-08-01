@@ -22,6 +22,7 @@ import petRoutes from "./routes/petRoutes.js";
 import productRoutes from "./routes/productRoutes.js";
 import reviewRoutes from "./routes/reviewRoutes.js";
 import vaccinationRoutes from "./routes/vaccinationRoutes.js";
+import vetPortalRoutes from "./routes/vetPortalRoutes.js";
 import vetRoutes from "./routes/vetRoutes.js";
 import wishlistRoutes from "./routes/wishlistRoutes.js";
 import errorMiddleware from "./middleware/errorMiddleware.js";
@@ -100,6 +101,7 @@ app.get("/api/docs", (req, res) => {
 
 app.use("/api/auth", authRoutes);
 app.use("/api/pets", petRoutes);
+app.use("/api/vet", vetPortalRoutes);
 app.use("/api/vets", vetRoutes);
 app.use("/api/appointments", appointmentRoutes);
 app.use("/api/vaccinations", vaccinationRoutes);

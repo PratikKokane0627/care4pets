@@ -254,6 +254,75 @@ describe("admin operations", () => {
     expect(response.status).toBe(400);
   });
 
+  it("updates user status and returns activity on user details", async () => {
+    const [admin, owner] = await Promise.all([
+      createUser({ role: "admin", email: "activity-admin@example.com" }),
+      createUser({ email: "activity-owner@example.com" }),
+    ]);
+    const pet = await Pet.create({
+      ownerId: owner.user._id,
+      petName: "Milo",
+      species: "Dog",
+      breed: "Beagle",
+      age: 3,
+      gender: "Male",
+      weight: 12,
+    });
+    const service = await GroomingService.create({
+      serviceName: "Bath",
+      duration: 30,
+      price: 400,
+      category: "Bath",
+    });
+    await Promise.all([
+      GroomingBooking.create({
+        ownerId: owner.user._id,
+        petId: pet._id,
+        serviceId: service._id,
+        bookingDate: new Date(Date.now() + 86400000),
+        bookingTime: "11:00",
+        price: 400,
+        duration: 30,
+      }),
+      Order.create({
+        userId: owner.user._id,
+        items: [
+          {
+            productId: new mongoose.Types.ObjectId(),
+            productName: "Dog Food",
+            quantity: 1,
+            price: 500,
+            totalPrice: 500,
+          },
+        ],
+        shippingAddress: {
+          fullName: "Test User",
+          phone: "9876543210",
+          address: "1 Test Street",
+          city: "Bengaluru",
+          state: "Karnataka",
+          postalCode: "560001",
+        },
+      }),
+    ]);
+
+    const blocked = await request(app)
+      .patch(`/api/admin/users/${owner.user._id}/status`)
+      .set("Authorization", admin.authorization)
+      .send({ status: "blocked" });
+    expect(blocked.status).toBe(200);
+    expect(blocked.body.user.status).toBe("blocked");
+
+    const details = await request(app)
+      .get(`/api/admin/users/${owner.user._id}`)
+      .set("Authorization", admin.authorization);
+    expect(details.status).toBe(200);
+    expect(details.body.activity.counts.pets).toBe(1);
+    expect(details.body.activity.counts.groomingBookings).toBe(1);
+    expect(details.body.activity.counts.orders).toBe(1);
+    expect(details.body.activity.pets[0].petName).toBe("Milo");
+  });
+
   it("accepts a veterinarian application for admin approval", async () => {
     const application = await request(app).post("/api/vets/apply").send({
       name: "Dr Test",

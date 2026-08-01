@@ -12,12 +12,88 @@ const normalizeAvailability = (availability = []) => {
     throw new ApiError(400, "Availability must be an array");
   }
 
-  return availability.map((slot) => ({
-    day: slot.day,
-    startTime: slot.startTime,
-    endTime: slot.endTime,
-    isAvailable: slot.isAvailable ?? true,
-  }));
+  const allowedDays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+  const seen = new Set();
+  const timePattern = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+  return availability.map((slot) => {
+    if (!allowedDays.includes(slot.day)) {
+      throw new ApiError(400, "Invalid availability day");
+    }
+    if (seen.has(slot.day)) {
+      throw new ApiError(400, "Duplicate availability days are not allowed");
+    }
+    seen.add(slot.day);
+    if (!timePattern.test(slot.startTime) || !timePattern.test(slot.endTime)) {
+      throw new ApiError(400, "Availability times must use HH:mm format");
+    }
+    if (slot.isAvailable !== false && slot.endTime <= slot.startTime) {
+      throw new ApiError(400, "Availability end time must be later than start time");
+    }
+
+    return {
+      day: slot.day,
+      startTime: slot.startTime,
+      endTime: slot.endTime,
+      isAvailable: slot.isAvailable ?? true,
+    };
+  });
+};
+
+const populateVet = (query) =>
+  query.populate("userId", "name email phone role status profileImage address createdAt");
+
+const getOwnVetProfileOrThrow = async (userId) => {
+  const vet = await VetProfile.findOne({ userId }).populate(
+    "userId",
+    "name email phone role status profileImage address createdAt"
+  );
+  if (!vet) throw new ApiError(404, "Veterinarian profile not found");
+  return vet;
+};
+
+const assignEditableVetFields = async (vet, user, body) => {
+  const stringFields = ["qualification", "specialization", "clinicName", "about"];
+  stringFields.forEach((field) => {
+    if (body[field] !== undefined) vet[field] = String(body[field]).trim();
+  });
+
+  if (body.experience !== undefined) {
+    const experience = Number(body.experience);
+    if (!Number.isFinite(experience) || experience < 0) {
+      throw new ApiError(400, "Experience must be greater than or equal to 0");
+    }
+    vet.experience = experience;
+  }
+
+  if (body.consultationFee !== undefined) {
+    const consultationFee = Number(body.consultationFee);
+    if (!Number.isFinite(consultationFee) || consultationFee < 0) {
+      throw new ApiError(400, "Consultation fee must be greater than or equal to 0");
+    }
+    vet.consultationFee = consultationFee;
+  }
+
+  if (body.clinicAddress) {
+    vet.clinicAddress = {
+      ...vet.clinicAddress.toObject(),
+      ...body.clinicAddress,
+    };
+  }
+
+  if (body.availability !== undefined) {
+    vet.availability = normalizeAvailability(body.availability);
+  }
+
+  if (body.name !== undefined) user.name = String(body.name).trim();
+  if (body.phone !== undefined) user.phone = String(body.phone).trim();
+  if (body.email !== undefined) {
+    const email = String(body.email).toLowerCase().trim();
+    const exists = await User.exists({ email, _id: { $ne: user._id } });
+    if (exists) throw new ApiError(409, "User with this email already exists");
+    user.email = email;
+    user.isVerified = true;
+  }
 };
 
 export const applyAsVet = asyncHandler(async (req, res) => {
@@ -400,6 +476,78 @@ export const getVetById = asyncHandler(async (req, res) => {
     vet,
   });
 });
+
+export const getMyVetProfile = asyncHandler(async (req, res) => {
+  const vet = await getOwnVetProfileOrThrow(req.user._id);
+  res.json({ success: true, message: "Veterinarian profile fetched successfully", vet });
+});
+
+export const updateMyVetProfile = asyncHandler(async (req, res) => {
+  const vet = await VetProfile.findOne({ userId: req.user._id });
+  if (!vet) throw new ApiError(404, "Veterinarian profile not found");
+
+  const user = await User.findById(req.user._id);
+  await assignEditableVetFields(vet, user, req.body || {});
+  await Promise.all([vet.save(), user.save()]);
+
+  const updatedVet = await populateVet(VetProfile.findById(vet._id));
+  res.json({ success: true, message: "Veterinarian profile updated successfully", vet: updatedVet });
+});
+
+export const updateMyVetAvailability = asyncHandler(async (req, res) => {
+  const vet = await VetProfile.findOne({ userId: req.user._id });
+  if (!vet) throw new ApiError(404, "Veterinarian profile not found");
+
+  vet.availability = normalizeAvailability(req.body.availability);
+  await vet.save();
+
+  res.json({ success: true, message: "Availability updated", availability: vet.availability });
+});
+
+export const uploadMyVetImage = asyncHandler(async (req, res) => {
+  const vet = await VetProfile.findOne({ userId: req.user._id });
+  if (!vet) throw new ApiError(404, "Veterinarian profile not found");
+  if (!req.file) throw new ApiError(400, "Please upload an image");
+
+  const oldPublicId = vet.profileImage?.publicId;
+  const result = await uploadToCloudinary(req.file.buffer, "care4pets/vets");
+
+  try {
+    vet.profileImage = { url: result.secure_url, publicId: result.public_id };
+    await vet.save();
+  } catch (error) {
+    await cloudinary.uploader.destroy(result.public_id);
+    throw error;
+  }
+
+  if (oldPublicId) await cloudinary.uploader.destroy(oldPublicId);
+
+  res.json({
+    success: true,
+    message: "Veterinarian image uploaded successfully",
+    image: vet.profileImage,
+    vet,
+  });
+});
+
+export const deleteMyVetImage = asyncHandler(async (req, res) => {
+  const vet = await VetProfile.findOne({ userId: req.user._id });
+  if (!vet) throw new ApiError(404, "Veterinarian profile not found");
+
+  if (vet.profileImage?.publicId) {
+    await cloudinary.uploader.destroy(vet.profileImage.publicId);
+  }
+
+  vet.profileImage = { url: "", publicId: "" };
+  await vet.save();
+
+  res.json({
+    success: true,
+    message: "Veterinarian image deleted successfully",
+    image: vet.profileImage,
+    vet,
+  });
+});
 export const updateVet = asyncHandler(async (req, res) => {
   const { id } = req.params;
 
@@ -554,6 +702,10 @@ export const updateAvailability = asyncHandler(async (req, res) => {
 
   const { id } = req.params;
 
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    throw new ApiError(400, "Invalid veterinarian ID");
+  }
+
   const vet = await VetProfile.findById(id);
 
   if (!vet) {
@@ -573,7 +725,7 @@ export const updateAvailability = asyncHandler(async (req, res) => {
     );
   }
 
-  vet.availability = req.body.availability;
+  vet.availability = normalizeAvailability(req.body.availability);
 
   await vet.save();
 
@@ -586,6 +738,10 @@ export const updateAvailability = asyncHandler(async (req, res) => {
 });
 
 export const getAvailability = asyncHandler(async(req,res)=>{
+
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+        throw new ApiError(400, "Invalid veterinarian ID");
+    }
 
     const vet=await VetProfile.findById(req.params.id)
     .select("availability");
