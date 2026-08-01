@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 
 import PageHeader from "../../../components/owner/PageHeader";
 import api from "../../../services/api";
-import { Button, Field, Panel } from "../ownerShared";
+import { Button, ConfirmDialog, Field, Panel } from "../ownerShared";
 
 const Settings = () => {
   const navigate = useNavigate();
@@ -22,6 +22,7 @@ const Settings = () => {
   });
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
 
   const setField = (field, value) => setForm((current) => ({ ...current, [field]: value }));
 
@@ -47,11 +48,15 @@ const Settings = () => {
 
   const deleteAccount = async (event) => {
     event.preventDefault();
-    if (!window.confirm("Delete your account permanently?")) return;
+    setConfirmDeleteOpen(true);
+  };
+
+  const confirmDeleteAccount = async () => {
     setDeleting(true);
     try {
       await api.delete("/auth/account", { data: { password: deletePassword } });
       toast.success("Account deleted");
+      setConfirmDeleteOpen(false);
       logout();
     } catch (err) {
       toast.error(err.response?.data?.message || "Could not delete account");
@@ -143,6 +148,16 @@ const Settings = () => {
           </form>
         </Panel>
       </div>
+      <ConfirmDialog
+        open={confirmDeleteOpen}
+        title="Delete account"
+        message="This will permanently delete your owner account and related owner data."
+        confirmText="Delete Account"
+        danger
+        loading={deleting}
+        onConfirm={confirmDeleteAccount}
+        onClose={() => setConfirmDeleteOpen(false)}
+      />
     </main>
   );
 };

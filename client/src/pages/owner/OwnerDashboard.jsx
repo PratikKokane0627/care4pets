@@ -11,7 +11,7 @@ import {
   Syringe,
   UserRound,
 } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import EmptyState from "../../components/owner/EmptyState";
@@ -26,15 +26,21 @@ import {
   vetName,
 } from "./ownerShared";
 
-const weeklyActivity = [
-  { day: "Mon", value: 40 },
-  { day: "Tue", value: 70 },
-  { day: "Wed", value: 50 },
-  { day: "Thu", value: 85 },
-  { day: "Fri", value: 65 },
-  { day: "Sat", value: 95 },
-  { day: "Sun", value: 75 },
-];
+const weekDays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+const startOfWeek = (date) => {
+  const start = new Date(date);
+  start.setHours(0, 0, 0, 0);
+  const day = start.getDay() || 7;
+  start.setDate(start.getDate() - day + 1);
+  return start;
+};
+
+const parseRecordDate = (value) => {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
 
 const statusClass = (status = "") => {
   const value = status.toLowerCase();
@@ -149,6 +155,8 @@ const OwnerDashboard = () => {
   const [pets, setPets] = useState([]);
   const [appointments, setAppointments] = useState([]);
   const [vaccinations, setVaccinations] = useState([]);
+  const [groomingBookings, setGroomingBookings] = useState([]);
+  const [orders, setOrders] = useState([]);
   const [upcomingVaccinationReminders, setUpcomingVaccinationReminders] = useState([]);
   const [overdueVaccinationReminders, setOverdueVaccinationReminders] = useState([]);
 
@@ -157,12 +165,16 @@ const OwnerDashboard = () => {
       petsRes,
       appointmentsRes,
       vaccinationsRes,
+      groomingBookingsRes,
+      ordersRes,
       upcomingVaccinationsRes,
       overdueVaccinationsRes,
     ] = await Promise.all([
       api.get("/pets"),
       api.get("/appointments").catch(() => ({ data: [] })),
       api.get("/vaccinations").catch(() => ({ data: [] })),
+      api.get("/grooming-bookings").catch(() => ({ data: [] })),
+      api.get("/orders/my-orders").catch(() => ({ data: [] })),
       api.get("/vaccinations/upcoming").catch(() => ({ data: [] })),
       api.get("/vaccinations/overdue").catch(() => ({ data: [] })),
     ]);
@@ -170,6 +182,8 @@ const OwnerDashboard = () => {
     setPets(toArray(petsRes.data, ["pets"]));
     setAppointments(toArray(appointmentsRes.data, ["appointments"]));
     setVaccinations(toArray(vaccinationsRes.data, ["vaccinations"]));
+    setGroomingBookings(toArray(groomingBookingsRes.data, ["bookings"]));
+    setOrders(toArray(ordersRes.data, ["orders"]));
     setUpcomingVaccinationReminders(
       toArray(upcomingVaccinationsRes.data, ["vaccinations"])
     );
@@ -194,6 +208,55 @@ const OwnerDashboard = () => {
     ...overdueVaccinationReminders,
     ...dueVaccinations,
   ];
+
+  const activityStats = useMemo(() => {
+    const currentStart = startOfWeek(new Date());
+    const previousStart = new Date(currentStart);
+    previousStart.setDate(previousStart.getDate() - 7);
+    const currentEnd = new Date(currentStart);
+    currentEnd.setDate(currentEnd.getDate() + 7);
+
+    const currentCounts = Array(7).fill(0);
+    const previousCounts = Array(7).fill(0);
+    const records = [
+      ...appointments.map((item) => item.appointmentDate || item.createdAt),
+      ...groomingBookings.map((item) => item.bookingDate || item.createdAt),
+      ...vaccinations.map((item) => item.vaccinationDate || item.nextDueDate || item.createdAt),
+      ...orders.map((item) => item.createdAt),
+    ];
+
+    records.forEach((value) => {
+      const date = parseRecordDate(value);
+      if (!date) return;
+      const weekIndex = (date.getDay() || 7) - 1;
+
+      if (date >= currentStart && date < currentEnd) {
+        currentCounts[weekIndex] += 1;
+      } else if (date >= previousStart && date < currentStart) {
+        previousCounts[weekIndex] += 1;
+      }
+    });
+
+    const maxCount = Math.max(...currentCounts, 1);
+    const currentTotal = currentCounts.reduce((sum, value) => sum + value, 0);
+    const previousTotal = previousCounts.reduce((sum, value) => sum + value, 0);
+    const changePercent = previousTotal
+      ? Math.round(((currentTotal - previousTotal) / previousTotal) * 100)
+      : currentTotal > 0
+        ? 100
+        : 0;
+
+    return {
+      currentTotal,
+      previousTotal,
+      changePercent,
+      bars: weekDays.map((day, index) => ({
+        day,
+        count: currentCounts[index],
+        value: currentCounts[index] ? Math.max((currentCounts[index] / maxCount) * 100, 12) : 4,
+      })),
+    };
+  }, [appointments, groomingBookings, orders, vaccinations]);
 
   return (
     <main>
@@ -339,7 +402,7 @@ const OwnerDashboard = () => {
           />
 
           <div className="flex h-64 items-end justify-between gap-3 pt-5">
-            {weeklyActivity.map((item) => (
+            {activityStats.bars.map((item) => (
               <div
                 key={item.day}
                 className="flex h-full flex-1 flex-col items-center justify-end"
@@ -347,7 +410,7 @@ const OwnerDashboard = () => {
                 <div
                   className="w-full max-w-9 rounded-t-lg bg-gradient-to-t from-indigo-600 to-cyan-400 transition hover:opacity-80"
                   style={{ height: `${item.value}%` }}
-                  title={`${item.value}% activity`}
+                  title={`${item.count} care records`}
                 />
 
                 <span className="mt-3 text-xs text-slate-500">{item.day}</span>
@@ -355,13 +418,21 @@ const OwnerDashboard = () => {
             ))}
           </div>
 
-          <div className="mt-5 flex items-center gap-3 rounded-xl bg-emerald-500/10 p-4 text-emerald-400">
+          <div className={`mt-5 flex items-center gap-3 rounded-xl p-4 ${
+            activityStats.changePercent >= 0
+              ? "bg-emerald-500/10 text-emerald-400"
+              : "bg-amber-500/10 text-amber-400"
+          }`}>
             <Activity size={21} />
 
             <div>
-              <p className="font-semibold">Activity increased by 18%</p>
-              <p className="text-xs text-emerald-400/70">
-                Compared with last week
+              <p className="font-semibold">
+                {activityStats.currentTotal} care records this week
+              </p>
+              <p className="text-xs opacity-70">
+                {activityStats.previousTotal
+                  ? `${Math.abs(activityStats.changePercent)}% ${activityStats.changePercent >= 0 ? "increase" : "decrease"} from last week`
+                  : "No care records last week for comparison"}
               </p>
             </div>
           </div>

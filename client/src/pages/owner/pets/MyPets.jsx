@@ -10,6 +10,7 @@ import useFetch from "../../../hooks/useFetch";
 import api from "../../../services/api";
 import {
   Button,
+  ConfirmDialog,
   ErrorState,
   Field,
   Panel,
@@ -34,6 +35,8 @@ const MyPets = ({ defaultShowForm = false }) => {
   const [petImageFile, setPetImageFile] = useState(null);
   const [petImagePreview, setPetImagePreview] = useState("");
   const [petImageBusy, setPetImageBusy] = useState(false);
+  const [confirmAction, setConfirmAction] = useState(null);
+  const [confirmBusy, setConfirmBusy] = useState(false);
   const navigate = useNavigate();
 
   const loadPets = async () => {
@@ -97,18 +100,36 @@ const MyPets = ({ defaultShowForm = false }) => {
       return;
     }
     if (!editingId || !petImagePreview) return toast.error("No pet image to delete");
-    if (!window.confirm("Delete this pet image?")) return;
+    setConfirmAction({
+      type: "pet-image",
+      title: "Delete pet image",
+      message: "This will remove the current profile image from this pet.",
+      confirmText: "Delete Image",
+    });
+  };
+
+  const confirmPetAction = async () => {
+    if (!confirmAction) return;
+    setConfirmBusy(true);
     try {
-      setPetImageBusy(true);
-      const res = await api.delete(`/pets/${editingId}/image`);
-      updatePetInList(res.data.pet || res.data);
-      setPetImagePreview("");
-      setPetImageFile(null);
-      toast.success(res.data.message || "Pet image deleted");
+      if (confirmAction.type === "pet-image") {
+        setPetImageBusy(true);
+        const res = await api.delete(`/pets/${editingId}/image`);
+        updatePetInList(res.data.pet || res.data);
+        setPetImagePreview("");
+        setPetImageFile(null);
+        toast.success(res.data.message || "Pet image deleted");
+      } else if (confirmAction.type === "pet-profile") {
+        await api.delete(`/pets/${confirmAction.id}`);
+        toast.success("Pet deleted");
+        await loadPets();
+      }
+      setConfirmAction(null);
     } catch (err) {
-      toast.error(err.response?.data?.message || "Could not delete pet image");
+      toast.error(err.response?.data?.message || "Could not delete pet");
     } finally {
       setPetImageBusy(false);
+      setConfirmBusy(false);
     }
   };
 
@@ -139,17 +160,20 @@ const MyPets = ({ defaultShowForm = false }) => {
   };
 
   const deletePet = async (id) => {
-    if (!window.confirm("Delete this pet profile?")) return;
-    await api.delete(`/pets/${id}`);
-    toast.success("Pet deleted");
-    await loadPets();
+    setConfirmAction({
+      type: "pet-profile",
+      id,
+      title: "Delete pet profile",
+      message: "This will permanently delete this pet profile.",
+      confirmText: "Delete Pet",
+    });
   };
 
   return (
     <main>
       <PageHeader
         title="My Pets"
-        description="List, search, add, view details, edit and soft delete your pet profiles."
+        description="List, search, add, view details, edit and  delete your pet profiles."
         action={<Button onClick={() => openForm()}><Plus size={17} /> Add Pet</Button>}
       />
       <ErrorState message={error} />
@@ -251,6 +275,16 @@ const MyPets = ({ defaultShowForm = false }) => {
           </div>
         )}
       </Panel>
+      <ConfirmDialog
+        open={Boolean(confirmAction)}
+        title={confirmAction?.title}
+        message={confirmAction?.message}
+        confirmText={confirmAction?.confirmText}
+        danger
+        loading={confirmBusy}
+        onConfirm={confirmPetAction}
+        onClose={() => setConfirmAction(null)}
+      />
     </main>
   );
 };

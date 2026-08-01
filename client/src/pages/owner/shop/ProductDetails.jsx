@@ -9,6 +9,7 @@ import useFetch from "../../../hooks/useFetch";
 import api from "../../../services/api";
 import {
   Button,
+  ConfirmDialog,
   ErrorState,
   Field,
   InfoBlock,
@@ -35,6 +36,8 @@ const ProductDetails = () => {
   });
   const [editingReviewId, setEditingReviewId] = useState("");
   const [saving, setSaving] = useState(false);
+  const [deleteReviewTarget, setDeleteReviewTarget] = useState("");
+  const [deleteReviewBusy, setDeleteReviewBusy] = useState(false);
 
   const load = async () => {
     const [productRes, reviewsRes, ordersRes] = await Promise.all([
@@ -99,14 +102,18 @@ const ProductDetails = () => {
     });
   };
 
-  const deleteReview = async (reviewId) => {
-    if (!window.confirm("Delete this review?")) return;
+  const deleteReview = async () => {
+    if (!deleteReviewTarget) return;
+    setDeleteReviewBusy(true);
     try {
-      await api.delete(`/reviews/${reviewId}`);
+      await api.delete(`/reviews/${deleteReviewTarget}`);
       toast.success("Review deleted");
+      setDeleteReviewTarget("");
       await load();
     } catch (err) {
       toast.error(err.response?.data?.message || "Could not delete review");
+    } finally {
+      setDeleteReviewBusy(false);
     }
   };
 
@@ -233,7 +240,7 @@ const ProductDetails = () => {
                         {isMine && (
                           <div className="flex gap-2">
                             <Button variant="ghost" onClick={() => editReview(review)}>Edit</Button>
-                            <Button variant="danger" onClick={() => deleteReview(getId(review))}>Delete</Button>
+                            <Button variant="danger" onClick={() => setDeleteReviewTarget(getId(review))}>Delete</Button>
                           </div>
                         )}
                       </div>
@@ -244,6 +251,16 @@ const ProductDetails = () => {
               </div>
             )}
           </Panel>
+          <ConfirmDialog
+            open={Boolean(deleteReviewTarget)}
+            title="Delete review"
+            message="This product review will be permanently removed."
+            confirmText="Delete Review"
+            danger
+            loading={deleteReviewBusy}
+            onConfirm={deleteReview}
+            onClose={() => setDeleteReviewTarget("")}
+          />
         </div>
       )}
     </main>

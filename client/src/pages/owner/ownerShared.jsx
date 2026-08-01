@@ -134,6 +134,54 @@ export const Button = ({
   );
 };
 
+export const ConfirmDialog = ({
+  open,
+  title = "Confirm action",
+  message = "Are you sure you want to continue?",
+  confirmText = "Confirm",
+  cancelText = "Cancel",
+  danger = false,
+  inputLabel,
+  inputValue = "",
+  inputPlaceholder = "",
+  onInputChange,
+  onConfirm,
+  onClose,
+  loading = false,
+}) => {
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm">
+      <div className="w-full max-w-md rounded-2xl border border-cyan-300/20 bg-slate-900 p-6 shadow-2xl shadow-cyan-950/30">
+        <h2 className="text-xl font-bold text-white">{title}</h2>
+        {message && <p className="mt-3 text-sm leading-6 text-slate-400">{message}</p>}
+        {inputLabel && (
+          <label className="mt-5 block">
+            <span className="mb-2 block text-sm font-medium text-slate-300">
+              {inputLabel}
+            </span>
+            <textarea
+              value={inputValue}
+              onChange={(event) => onInputChange?.(event.target.value)}
+              placeholder={inputPlaceholder}
+              className="min-h-24 w-full resize-y rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white outline-none transition placeholder:text-slate-600 hover:border-white/25 focus:border-cyan-400"
+            />
+          </label>
+        )}
+        <div className="mt-6 flex flex-wrap justify-end gap-3">
+          <Button variant="ghost" onClick={onClose} disabled={loading}>
+            {cancelText}
+          </Button>
+          <Button variant={danger ? "danger" : "primary"} onClick={onConfirm} disabled={loading}>
+            {loading ? "Please wait..." : confirmText}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export const Field = ({
   label,
   value,

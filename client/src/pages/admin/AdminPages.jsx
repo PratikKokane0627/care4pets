@@ -33,6 +33,7 @@ import {
 
 const orderStatuses = ["Pending", "Confirmed", "Packed", "Shipped", "Out for Delivery", "Delivered", "Cancelled"];
 const groomingStatuses = ["pending", "accepted", "rejected", "cancelled", "completed"];
+const groomingServiceCategories = ["Bath", "Haircut", "Spa", "Nail Trimming", "Dental Cleaning", "Full Grooming"];
 const appointmentStatuses = ["pending", "accepted", "rejected", "cancelled", "completed"];
 const userStatuses = ["pending", "active", "inactive", "blocked", "rejected"];
 
@@ -675,11 +676,34 @@ export const AddGroomer = () => {
   const [form, setForm] = useState({ name: "", email: "", phone: "", password: "", bio: "", experience: "", skills: "", serviceAreas: "" });
   const save = async (event) => {
     event.preventDefault();
-    await api.post("/admin/groomers", { ...form, skills: form.skills.split(",").map((v) => v.trim()).filter(Boolean), serviceAreas: form.serviceAreas.split(",").map((v) => v.trim()).filter(Boolean) });
-    toast.success("Groomer created");
-    navigate("/admin/groomers");
+    const requiredFields = ["name", "email", "phone", "password"];
+    const missingField = requiredFields.find((field) => !form[field]?.trim());
+    if (missingField) {
+      toast.error(`${missingField.replace(/([A-Z])/g, " $1")} is required`);
+      return;
+    }
+    if (form.password.length < 8) {
+      toast.error("Password must contain at least 8 characters");
+      return;
+    }
+
+    try {
+      await api.post("/admin/groomers", {
+        ...form,
+        name: form.name.trim(),
+        email: form.email.trim(),
+        phone: form.phone.trim(),
+        experience: Number(form.experience) || 0,
+        skills: form.skills.split(",").map((v) => v.trim()).filter(Boolean),
+        serviceAreas: form.serviceAreas.split(",").map((v) => v.trim()).filter(Boolean),
+      });
+      toast.success("Groomer created");
+      navigate("/admin/groomers");
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Could not create groomer");
+    }
   };
-  return <FormPage title="Add Groomer" description="Create a groomer account." form={form} setForm={setForm} onSubmit={save} fields={["name", "email", "phone", "password", "bio", "experience", "skills", "serviceAreas"]} />;
+  return <FormPage title="Add Groomer" description="Create a groomer account." form={form} setForm={setForm} onSubmit={save} fields={[{ name: "name", required: true }, { name: "email", type: "email", required: true }, { name: "phone", required: true }, { name: "password", type: "password", required: true }, { name: "bio", as: "textarea", full: true }, { name: "experience", type: "number" }, "skills", "serviceAreas"]} />;
 };
 
 export const EditGroomer = () => <FutureModule icon={Lock} title="Edit Groomer" description="Groomer edit UI is reserved until update-profile admin APIs are added." bullets={["Contact details", "Service profile", "Availability", "Service areas"]} />;
@@ -1062,20 +1086,37 @@ export const GroomingServices = () => {
 export const GroomingServiceForm = ({ edit = false }) => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [form, setForm] = useState({ serviceName: "", description: "", duration: "", price: "", category: "basic" });
-  useEffect(() => { if (edit) api.get(`/grooming-services/${id}`).then((res) => { const s = res.data.service; setForm({ serviceName: s.serviceName || "", description: s.description || "", duration: s.duration || "", price: s.price || "", category: s.category || "basic" }); }); }, [edit, id]);
+  const [form, setForm] = useState({ serviceName: "", description: "", duration: "", price: "", category: "Bath" });
+  useEffect(() => { if (edit) api.get(`/grooming-services/${id}`).then((res) => { const s = res.data.service; setForm({ serviceName: s.serviceName || "", description: s.description || "", duration: s.duration || "", price: s.price || "", category: s.category || "Bath" }); }).catch((err) => toast.error(err.response?.data?.message || "Could not load service")); }, [edit, id]);
   const save = async (event) => {
     event.preventDefault();
-    const payload = { ...form, duration: Number(form.duration), price: Number(form.price) };
-    if (edit) {
-      await api.put(`/grooming-services/${id}`, payload);
-    } else {
-      await api.post("/grooming-services", payload);
+    const duration = Number(form.duration);
+    const price = Number(form.price);
+    if (!form.serviceName.trim()) return toast.error("Service name is required");
+    if (!Number.isFinite(duration) || duration <= 0) return toast.error("Duration must be greater than 0");
+    if (!Number.isFinite(price) || price < 0) return toast.error("Price must be greater than or equal to 0");
+    if (!groomingServiceCategories.includes(form.category)) return toast.error("Choose a valid category");
+
+    try {
+      const payload = {
+        ...form,
+        serviceName: form.serviceName.trim(),
+        description: form.description.trim(),
+        duration,
+        price,
+      };
+      if (edit) {
+        await api.put(`/grooming-services/${id}`, payload);
+      } else {
+        await api.post("/grooming-services", payload);
+      }
+      toast.success(edit ? "Service updated" : "Service created");
+      navigate("/admin/grooming-services");
+    } catch (err) {
+      toast.error(err.response?.data?.message || `Could not ${edit ? "update" : "create"} service`);
     }
-    toast.success(edit ? "Service updated" : "Service created");
-    navigate("/admin/grooming-services");
   };
-  return <FormPage title={edit ? "Edit Grooming Service" : "Add Grooming Service"} description="Service name, duration and pricing." form={form} setForm={setForm} onSubmit={save} fields={[{ name: "serviceName", required: true }, { name: "category", required: true }, { name: "duration", type: "number", required: true }, { name: "price", type: "number", required: true }, { name: "description", as: "textarea", full: true }]} />;
+  return <FormPage title={edit ? "Edit Grooming Service" : "Add Grooming Service"} description="Service name, duration and pricing." form={form} setForm={setForm} onSubmit={save} fields={[{ name: "serviceName", required: true }, { name: "category", as: "select", required: true, options: groomingServiceCategories.map((value) => ({ value, label: value })) }, { name: "duration", type: "number", required: true }, { name: "price", type: "number", required: true }, { name: "description", as: "textarea", full: true }]} />;
 };
 
 export const GroomingBookings = () => {

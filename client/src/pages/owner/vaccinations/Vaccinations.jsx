@@ -9,6 +9,7 @@ import useFetch from "../../../hooks/useFetch";
 import api from "../../../services/api";
 import {
   Button,
+  ConfirmDialog,
   ErrorState,
   Field,
   Panel,
@@ -36,6 +37,8 @@ const Vaccinations = () => {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState("");
   const [view, setView] = useState("all");
+  const [deleteTarget, setDeleteTarget] = useState("");
+  const [deleteBusy, setDeleteBusy] = useState(false);
 
   const load = async () => {
     const vaccinationEndpoint =
@@ -87,11 +90,19 @@ const Vaccinations = () => {
     setShowForm(false);
   };
 
-  const remove = async (id) => {
-    if (!window.confirm("Delete this vaccination record?")) return;
-    await api.delete(`/vaccinations/${id}`);
-    toast.success("Vaccination deleted");
-    await load();
+  const remove = async () => {
+    if (!deleteTarget) return;
+    setDeleteBusy(true);
+    try {
+      await api.delete(`/vaccinations/${deleteTarget}`);
+      toast.success("Vaccination deleted");
+      setDeleteTarget("");
+      await load();
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Could not delete vaccination");
+    } finally {
+      setDeleteBusy(false);
+    }
   };
 
   return (
@@ -181,7 +192,7 @@ const Vaccinations = () => {
                   <Button variant="ghost" onClick={() => edit(item)}>
                     <Pencil size={16} />
                   </Button>
-                  <Button variant="danger" onClick={() => remove(getId(item))}>
+                  <Button variant="danger" onClick={() => setDeleteTarget(getId(item))}>
                     <Trash2 size={16} />
                   </Button>
                 </div>
@@ -190,6 +201,16 @@ const Vaccinations = () => {
           </div>
         )}
       </Panel>
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        title="Delete vaccination"
+        message="This vaccination record will be permanently removed."
+        confirmText="Delete Record"
+        danger
+        loading={deleteBusy}
+        onConfirm={remove}
+        onClose={() => setDeleteTarget("")}
+      />
     </main>
   );
 };
