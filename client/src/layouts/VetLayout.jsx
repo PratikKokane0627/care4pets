@@ -31,11 +31,30 @@ const navigationItems = [
   { label: "Change Password", path: "/vet/change-password", icon: Settings },
 ];
 
+const searchableActions = [
+  { label: "Dashboard", hint: "Overview, approval status, stats", path: "/vet/dashboard", keywords: ["home", "overview", "stats", "approval", "active"] },
+  { label: "Pending appointments", hint: "Requests awaiting your action", path: "/vet/appointments?status=pending", keywords: ["pending", "request", "requests", "awaiting"] },
+  { label: "Accepted appointments", hint: "Confirmed visits", path: "/vet/appointments?status=accepted", keywords: ["accepted", "confirmed"] },
+  { label: "Completed appointments", hint: "Finished consultations", path: "/vet/appointments?status=completed", keywords: ["completed", "done", "finished"] },
+  { label: "Rejected appointments", hint: "Declined requests", path: "/vet/appointments?status=rejected", keywords: ["rejected", "declined"] },
+  { label: "All appointments", hint: "Appointment list and filters", path: "/vet/appointments", keywords: ["appointment", "appointments", "booking", "bookings"] },
+  { label: "Patients", hint: "Pets assigned to you", path: "/vet/patients", keywords: ["patient", "patients", "pet", "pets"] },
+  { label: "Prescriptions", hint: "Completed consultation records", path: "/vet/prescriptions", keywords: ["prescription", "prescriptions", "medicine", "medical"] },
+  { label: "Availability", hint: "Working days and hours", path: "/vet/availability", keywords: ["availability", "available", "schedule", "time", "hours"] },
+  { label: "Reviews", hint: "Owner feedback and ratings", path: "/vet/reviews", keywords: ["review", "reviews", "rating", "ratings"] },
+  { label: "Notifications", hint: "Unread alerts", path: "/vet/notifications", keywords: ["notification", "notifications", "alert", "alerts"] },
+  { label: "Profile", hint: "Clinic and personal details", path: "/vet/profile", keywords: ["profile", "account", "clinic"] },
+  { label: "Change password", hint: "Security settings", path: "/vet/change-password", keywords: ["password", "security"] },
+];
+
 const VetLayout = () => {
   const navigate = useNavigate();
   const dropdownRef = useRef(null);
+  const searchRef = useRef(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
   const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
   const vetName = storedUser.name || storedUser.fullName || "Veterinarian";
   const vetEmail = storedUser.email || "vet@care4pets.com";
@@ -46,10 +65,37 @@ const VetLayout = () => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
         setProfileOpen(false);
       }
+      if (searchRef.current && !searchRef.current.contains(event.target)) {
+        setSearchOpen(false);
+      }
     };
     document.addEventListener("mousedown", close);
     return () => document.removeEventListener("mousedown", close);
   }, []);
+
+  const searchMatches = search.trim()
+    ? searchableActions
+        .filter((item) => {
+          const query = search.trim().toLowerCase();
+          return [item.label, item.hint, ...item.keywords].some((value) => value.toLowerCase().includes(query));
+        })
+        .slice(0, 6)
+    : searchableActions.slice(0, 5);
+
+  const goToSearchResult = (path) => {
+    navigate(path);
+    setSearch("");
+    setSearchOpen(false);
+  };
+
+  const submitSearch = (event) => {
+    event.preventDefault();
+    if (searchMatches.length) {
+      goToSearchResult(searchMatches[0].path);
+      return;
+    }
+    toast.error("No matching vet page found");
+  };
 
   const logout = () => {
     localStorage.removeItem("token");
@@ -66,11 +112,11 @@ const VetLayout = () => {
       <aside className={`fixed inset-y-0 left-0 z-50 flex w-72 flex-col border-r border-white/10 bg-slate-900 transition-transform duration-300 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"} lg:translate-x-0`}>
         <div className="flex h-20 items-center justify-between border-b border-white/10 px-6">
           <button type="button" onClick={() => navigate("/vet/dashboard")} className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-cyan-400 text-slate-950">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-cyan-400 text-slate-950 shadow-lg shadow-cyan-500/20">
               <Syringe size={25} />
             </div>
             <div className="text-left">
-              <h1 className="text-xl font-black">Care<span className="text-cyan-400">4</span>Pets</h1>
+              <h1 className="text-xl font-black">Care<span className="text-cyan-400">4Pets</span></h1>
               <p className="text-xs text-slate-500">Veterinarian Panel</p>
             </div>
           </button>
@@ -86,7 +132,7 @@ const VetLayout = () => {
                 key={item.path}
                 to={item.path}
                 onClick={() => setSidebarOpen(false)}
-                className={({ isActive }) => `flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition ${isActive ? "bg-gradient-to-r from-indigo-500/20 to-cyan-500/10 text-cyan-400" : "text-slate-400 hover:bg-white/5 hover:text-white"}`}
+                className={({ isActive }) => `flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition duration-200 ${isActive ? "bg-cyan-400 text-slate-950 shadow-lg shadow-cyan-500/20" : "text-slate-400 hover:bg-white/5 hover:text-white"}`}
               >
                 <Icon size={19} /> {item.label}
               </NavLink>
@@ -104,10 +150,57 @@ const VetLayout = () => {
       <div className="lg:pl-72">
         <header className="sticky top-0 z-30 flex h-20 items-center gap-4 border-b border-white/10 bg-slate-950/90 px-4 backdrop-blur-xl sm:px-6 lg:px-8">
           <button type="button" aria-label="Open sidebar" onClick={() => setSidebarOpen(true)} className="rounded-xl border border-white/10 p-2.5 text-slate-300 lg:hidden"><Menu size={22} /></button>
-          <div className="hidden max-w-xl flex-1 items-center rounded-xl border border-white/10 bg-slate-900 px-4 md:flex">
-            <Search size={18} className="text-slate-500" />
-            <input type="search" placeholder="Search dashboard..." className="w-full bg-transparent px-3 py-3 text-sm text-white outline-none placeholder:text-slate-600" />
-          </div>
+          <form ref={searchRef} onSubmit={submitSearch} className="relative hidden max-w-xl flex-1 md:block">
+            <div className={`flex items-center rounded-xl border bg-slate-900 px-4 transition ${searchOpen ? "border-cyan-300/40 ring-2 ring-cyan-300/10" : "border-white/10"}`}>
+              <Search size={18} className="text-slate-500" />
+              <input
+                type="search"
+                value={search}
+                onFocus={() => setSearchOpen(true)}
+                onChange={(event) => {
+                  setSearch(event.target.value);
+                  setSearchOpen(true);
+                }}
+                placeholder="Search dashboard..."
+                className="w-full bg-transparent px-3 py-3 text-sm text-white outline-none placeholder:text-slate-600"
+              />
+              {search && (
+                <button
+                  type="button"
+                  aria-label="Clear search"
+                  onClick={() => {
+                    setSearch("");
+                    setSearchOpen(false);
+                  }}
+                  className="rounded-lg p-1 text-slate-500 transition hover:bg-white/5 hover:text-white"
+                >
+                  <X size={17} />
+                </button>
+              )}
+            </div>
+            {searchOpen && (
+              <div className="absolute left-0 right-0 top-full z-50 mt-2 overflow-hidden rounded-xl border border-white/10 bg-slate-900 p-2 shadow-2xl shadow-black/40">
+                {searchMatches.length ? (
+                  searchMatches.map((item) => (
+                    <button
+                      key={item.path}
+                      type="button"
+                      onClick={() => goToSearchResult(item.path)}
+                      className="flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-left transition hover:bg-cyan-400/10"
+                    >
+                      <span>
+                        <span className="block text-sm font-semibold text-white">{item.label}</span>
+                        <span className="mt-0.5 block text-xs text-slate-500">{item.hint}</span>
+                      </span>
+                      <span className="text-xs font-semibold text-cyan-300">Open</span>
+                    </button>
+                  ))
+                ) : (
+                  <p className="px-3 py-3 text-sm text-slate-500">No vet page matches "{search}".</p>
+                )}
+              </div>
+            )}
+          </form>
           <div className="ml-auto flex items-center gap-2 sm:gap-3">
             <button type="button" onClick={() => navigate("/vet/notifications")} className="relative rounded-xl border border-white/10 bg-slate-900 p-3 text-slate-400 transition hover:text-white" aria-label="Open notifications">
               <Bell size={20} />

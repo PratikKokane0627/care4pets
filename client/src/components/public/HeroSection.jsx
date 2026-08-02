@@ -1,6 +1,7 @@
 import {
   FiArrowRight,
   FiCalendar,
+  FiHeart,
   FiShield,
 } from "react-icons/fi";
 import { FaPaw } from "react-icons/fa";
@@ -14,8 +15,8 @@ const HeroSection = () => {
       <div className="relative mx-auto max-w-7xl">
         <div className="mx-auto max-w-4xl text-center">
           <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-indigo-400/20 bg-indigo-400/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-indigo-300">
-            <FaPaw />
-            AI-powered pet care
+            <FiHeart />
+            Care4Pets care hub
           </div>
 
           <h1 className="text-4xl font-bold leading-tight text-white sm:text-5xl lg:text-7xl">
@@ -48,6 +49,13 @@ const HeroSection = () => {
             >
               Explore Services
             </a>
+
+            <Link
+              to="/apply-vet"
+              className="rounded-xl border border-cyan-300/30 bg-cyan-400/10 px-6 py-3 font-semibold text-cyan-200 transition hover:bg-cyan-400 hover:text-slate-950"
+            >
+              Apply as Vet
+            </Link>
           </div>
         </div>
 

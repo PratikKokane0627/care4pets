@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { CalendarDays, ClipboardList, IndianRupee, PawPrint, RefreshCw, Star, Stethoscope, UserCheck } from "lucide-react";
+import { ArrowRight, CalendarClock, CalendarDays, ClipboardList, IndianRupee, PawPrint, RefreshCw, ShieldCheck, Star, Stethoscope, UserCheck, UserRoundCog } from "lucide-react";
 import { Link } from "react-router-dom";
 import toast from "react-hot-toast";
 
@@ -28,7 +28,7 @@ const initialData = {
 };
 
 const Panel = ({ title, description, children, action }) => (
-  <section className="rounded-2xl border border-white/10 bg-slate-900 p-5">
+  <section className="rounded-2xl border border-white/10 bg-slate-900 p-5 shadow-lg shadow-black/10">
     <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
       <div>
         <h2 className="text-lg font-bold text-white">{title}</h2>
@@ -39,6 +39,64 @@ const Panel = ({ title, description, children, action }) => (
     {children}
   </section>
 );
+
+const approvalCopy = {
+  approved: {
+    tone: "from-emerald-500/18 via-cyan-500/10 to-slate-900",
+    border: "border-emerald-400/25",
+    icon: "bg-emerald-400/15 text-emerald-300 ring-1 ring-emerald-300/20",
+    title: "Approved and visible",
+    description: "Your profile is active for owner bookings.",
+    badgeStatus: "active",
+  },
+  pending: {
+    tone: "from-amber-500/18 via-slate-900 to-slate-900",
+    border: "border-amber-400/25",
+    icon: "bg-amber-400/15 text-amber-300 ring-1 ring-amber-300/20",
+    title: "Approval in review",
+    description: "Admin approval is still pending.",
+    badgeStatus: "pending",
+  },
+  rejected: {
+    tone: "from-red-500/18 via-slate-900 to-slate-900",
+    border: "border-red-400/25",
+    icon: "bg-red-400/15 text-red-300 ring-1 ring-red-300/20",
+    title: "Approval rejected",
+    description: "Update your details or contact support.",
+    badgeStatus: "inactive",
+  },
+};
+
+const quickActions = [
+  {
+    label: "Pending appointments",
+    detail: "Review requests waiting for your decision",
+    to: "/vet/appointments?status=pending",
+    icon: CalendarClock,
+    accent: "text-amber-300 bg-amber-400/10 ring-amber-300/15",
+  },
+  {
+    label: "Manage availability",
+    detail: "Edit bookable days and consultation hours",
+    to: "/vet/availability",
+    icon: CalendarDays,
+    accent: "text-cyan-300 bg-cyan-400/10 ring-cyan-300/15",
+  },
+  {
+    label: "View patients",
+    detail: "Open pets with recent appointment history",
+    to: "/vet/patients",
+    icon: PawPrint,
+    accent: "text-emerald-300 bg-emerald-400/10 ring-emerald-300/15",
+  },
+  {
+    label: "Update profile",
+    detail: "Keep clinic, fee, and bio details current",
+    to: "/vet/profile/edit",
+    icon: UserRoundCog,
+    accent: "text-indigo-300 bg-indigo-400/10 ring-indigo-300/15",
+  },
+];
 
 const VetDashboard = () => {
   const [data, setData] = useState(initialData);
@@ -71,6 +129,8 @@ const VetDashboard = () => {
 
   const vetName = data.vet?.userId?.name || "Veterinarian";
   const stats = data.stats || {};
+  const approvalStatus = String(data.vet?.status || "pending").toLowerCase();
+  const approval = approvalCopy[approvalStatus] || approvalCopy.pending;
   const maxWeekly = Math.max(...(data.weeklyAppointments || []).map((item) => item.count), 1);
   const completion = useMemo(() => {
     const profileFields = [
@@ -102,13 +162,22 @@ const VetDashboard = () => {
         }
       />
 
-      <div className="mb-6 rounded-2xl border border-white/10 bg-gradient-to-r from-indigo-500/15 to-cyan-500/10 p-5">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="text-sm font-semibold text-cyan-300">Approval status</p>
-            <h2 className="mt-1 text-xl font-bold text-white">{data.vet?.status || "pending"}</h2>
+      <div className={`mb-6 overflow-hidden rounded-2xl border ${approval.border} bg-gradient-to-r ${approval.tone} p-5 shadow-lg shadow-black/10`}>
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl ${approval.icon}`}>
+              <ShieldCheck size={25} />
+            </div>
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.2em] text-cyan-200/80">Approval status</p>
+              <h2 className="mt-1 text-2xl font-bold capitalize text-white">{approvalStatus}</h2>
+              <p className="mt-1 text-sm text-slate-300">{approval.description}</p>
+            </div>
           </div>
-          <VetStatusBadge status={data.vet?.isActive ? "active" : "inactive"} />
+          <div className="flex items-center gap-3 rounded-full border border-white/10 bg-slate-950/45 px-3 py-2">
+            <span className="text-sm font-semibold text-slate-300">{approval.title}</span>
+            <VetStatusBadge status={data.vet?.isActive ? approval.badgeStatus : "inactive"} />
+          </div>
         </div>
       </div>
 
@@ -184,12 +253,22 @@ const VetDashboard = () => {
         </Panel>
         <Panel title="Quick Actions" description="Common veterinarian workflows">
           <div className="grid gap-3 sm:grid-cols-2">
-            {[
-              ["View pending appointments", "/vet/appointments?status=pending"],
-              ["Manage availability", "/vet/availability"],
-              ["View patients", "/vet/patients"],
-              ["Update profile", "/vet/profile/edit"],
-            ].map(([label, to]) => <Link key={to} to={to} className="rounded-xl border border-white/10 bg-slate-950 px-4 py-4 text-sm font-semibold text-slate-300 transition hover:border-cyan-300/30 hover:text-white">{label}</Link>)}
+            {quickActions.map(({ label, detail, to, icon: Icon, accent }) => (
+              <Link
+                key={to}
+                to={to}
+                className="group flex min-h-28 items-center gap-4 rounded-xl border border-white/10 bg-slate-950 p-4 text-left transition duration-200 hover:-translate-y-0.5 hover:border-cyan-300/40 hover:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-300/35"
+              >
+                <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ring-1 ${accent}`}>
+                  <Icon size={22} />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block font-semibold text-white">{label}</span>
+                  <span className="mt-1 block text-sm leading-5 text-slate-500 transition group-hover:text-slate-300">{detail}</span>
+                </span>
+                <ArrowRight size={18} className="shrink-0 text-slate-600 transition group-hover:translate-x-1 group-hover:text-cyan-300" />
+              </Link>
+            ))}
           </div>
         </Panel>
       </section>

@@ -127,7 +127,7 @@ const Contact = () => {
                   </h2>
 
                   <p className="mt-2 text-slate-400">
-                    Sangli, Maharashtra, India
+                    Pune, Maharashtra, India
                   </p>
                 </div>
               </div>

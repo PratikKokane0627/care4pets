@@ -17,6 +17,8 @@ import ReportPanel from "../../components/admin/ReportPanel";
 import ResourceShell from "../../components/admin/ResourceShell";
 import SearchBar from "../../components/admin/SearchBar";
 import AvailabilityEditor from "../../components/vet/AvailabilityEditor";
+import ProfileImageUploader from "../../components/vet/ProfileImageUploader";
+import VetRegistrationForm from "../../components/vet/VetRegistrationForm";
 import api from "../../services/api";
 import {
   Button,
@@ -525,29 +527,89 @@ const UserActivity = ({ activity = {} }) => {
 
 export const ManageVets = () => {
   const [status, setStatus] = useState("");
+  const [busyAction, setBusyAction] = useState("");
   const endpoint = status ? `/admin/vets?status=${status}` : "/admin/vets?";
   const setApproval = async (vet, action, refresh) => {
-    await api.patch(`/admin/vets/${getId(vet)}/${action}`);
-    toast.success(action === "approve" ? "Veterinarian approved" : "Veterinarian rejected");
-    refresh();
+    const actionKey = `${getId(vet)}:${action}`;
+    try {
+      setBusyAction(actionKey);
+      await api.patch(`/admin/vets/${getId(vet)}/${action}`);
+      toast.success(action === "approve" ? "Veterinarian approved" : "Veterinarian rejected");
+      refresh();
+    } catch (err) {
+      toast.error(err.response?.data?.message || `Could not ${action} veterinarian`);
+    } finally {
+      setBusyAction("");
+    }
   };
   return (
     <ResourceShell
       title="Veterinarians"
       description="Review registered veterinarians and approval status."
+      action={<Button as={Link} to="/admin/veterinarians/add"><Plus size={16} /> Add Vet</Button>}
       endpoint={endpoint}
       keys={["vets"]}
       filters={({ setPage }) => <FilterPanel><Field as="select" label="Status" value={status} onChange={(v) => { setStatus(v); setPage(1); }} options={[{ value: "", label: "All statuses" }, "pending", "approved", "rejected"].map((value) => typeof value === "string" ? { value, label: value || "All statuses" } : value)} /></FilterPanel>}
-      columns={() => [
+      columns={({ refresh }) => [
         { header: "Vet", render: (vet) => <><p className="font-semibold text-white">{userName(vet.userId)}</p><p className="mt-1 text-xs text-slate-500">{vet.userId?.email}</p></> },
         { header: "Specialization", render: (vet) => vet.specialization || "Not set" },
         { header: "Experience", render: (vet) => `${vet.experience || 0} years` },
         { header: "Fee", render: (vet) => money(vet.consultationFee) },
         { header: "Status", render: (vet) => <StatusBadge status={vet.status} /> },
-        { header: "Actions", render: (vet) => <div className="flex flex-wrap gap-2"><Button as={Link} to={`/admin/veterinarians/${getId(vet)}`} variant="ghost">View</Button><Button variant="success" onClick={() => setApproval(vet, "approve", refresh)}>Approve</Button><Button variant="danger" onClick={() => setApproval(vet, "reject", refresh)}>Reject</Button></div> },
+        {
+          header: "Actions",
+          render: (vet) => {
+            const vetId = getId(vet);
+            const vetStatus = String(vet.status || "").toLowerCase();
+            const approving = busyAction === `${vetId}:approve`;
+            const rejecting = busyAction === `${vetId}:reject`;
+
+            return (
+              <div className="flex flex-wrap gap-2">
+                <Button as={Link} to={`/admin/veterinarians/${vetId}`} variant="ghost">View</Button>
+                <Button
+                  variant="success"
+                  disabled={approving || vetStatus === "approved"}
+                  onClick={() => setApproval(vet, "approve", refresh)}
+                >
+                  {approving ? "Approving..." : "Approve"}
+                </Button>
+                <Button
+                  variant="danger"
+                  disabled={rejecting || vetStatus === "rejected"}
+                  onClick={() => setApproval(vet, "reject", refresh)}
+                >
+                  {rejecting ? "Rejecting..." : "Reject"}
+                </Button>
+              </div>
+            );
+          },
+        },
       ]}
       emptyTitle="No veterinarians found"
     />
+  );
+};
+
+export const AddVet = () => {
+  const navigate = useNavigate();
+
+  const create = async (payload) => {
+    const response = await api.post("/vets", payload);
+    toast.success(response.data?.message || "Veterinarian created");
+    navigate("/admin/veterinarians");
+  };
+
+  return (
+    <main>
+      <VetRegistrationForm
+        title="Create Veterinarian"
+        description="Create an approved veterinarian account directly from the admin panel. This immediately activates the user and vet profile."
+        submitText="Create Veterinarian"
+        successNote="Admin-created veterinarians are approved and active immediately."
+        onSubmit={create}
+      />
+    </main>
   );
 };
 
@@ -617,18 +679,79 @@ export const VetDetails = () => {
   const { data, loading, error, setData } = useSingle(`/admin/vets/${id}`, "vet");
   const [availability, setAvailability] = useState([]);
   const [savingAvailability, setSavingAvailability] = useState(false);
+  const [profileForm, setProfileForm] = useState(null);
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [savingImage, setSavingImage] = useState(false);
 
   useEffect(() => {
-    if (data?.availability) setAvailability(data.availability);
+    if (!data) return;
+    if (data.availability) setAvailability(data.availability);
+    setProfileForm({
+      qualification: data.qualification || "",
+      specialization: data.specialization || "General Veterinary",
+      experience: data.experience ?? 0,
+      clinicName: data.clinicName || "",
+      consultationFee: data.consultationFee ?? 0,
+      about: data.about || "",
+      clinicAddress: {
+        street: data.clinicAddress?.street || "",
+        city: data.clinicAddress?.city || "",
+        state: data.clinicAddress?.state || "",
+        postalCode: data.clinicAddress?.postalCode || "",
+      },
+    });
   }, [data]);
 
   if (loading) return <AdminLoader text="Loading veterinarian..." />;
   const vet = data;
   if (!vet) return <EmptyState title="Veterinarian not found" description={error} />;
   const clinicAddress = vet.clinicAddress
-    ? [vet.clinicAddress.street, vet.clinicAddress.city, vet.clinicAddress.state, vet.clinicAddress.zipCode].filter(Boolean).join(", ")
+    ? [vet.clinicAddress.street, vet.clinicAddress.city, vet.clinicAddress.state, vet.clinicAddress.postalCode].filter(Boolean).join(", ")
     : "";
   const availabilityChanged = JSON.stringify(availability) !== JSON.stringify(vet.availability || []);
+  const setProfileField = (field, value) => setProfileForm((current) => ({ ...current, [field]: value }));
+  const setProfileAddress = (field, value) =>
+    setProfileForm((current) => ({ ...current, clinicAddress: { ...current.clinicAddress, [field]: value } }));
+  const saveProfile = async (event) => {
+    event.preventDefault();
+    if (!profileForm?.qualification?.trim() || !profileForm?.clinicName?.trim()) {
+      toast.error("Qualification and clinic name are required");
+      return;
+    }
+    setSavingProfile(true);
+    try {
+      const res = await api.put(`/vets/${id}`, {
+        ...profileForm,
+        experience: Number(profileForm.experience),
+        consultationFee: Number(profileForm.consultationFee),
+      });
+      setData(res.data.vet);
+      toast.success("Veterinarian profile updated");
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Could not update veterinarian profile");
+    } finally {
+      setSavingProfile(false);
+    }
+  };
+  const chooseVetImage = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) return toast.error("Choose an image file");
+    if (file.size > 5 * 1024 * 1024) return toast.error("Image must be 5 MB or smaller");
+    const body = new FormData();
+    body.append("image", file);
+    setSavingImage(true);
+    try {
+      const res = await api.put(`/vets/${id}/image`, body);
+      setData(res.data.vet);
+      toast.success("Veterinarian image updated");
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Could not upload veterinarian image");
+    } finally {
+      setSavingImage(false);
+      event.target.value = "";
+    }
+  };
   const saveAvailability = async () => {
     const invalid = availability.find((slot) => slot.isAvailable && slot.endTime <= slot.startTime);
     if (invalid) {
@@ -651,6 +774,19 @@ export const VetDetails = () => {
   return (
     <main>
       <AdminPageHeader title={userName(vet.userId) || "Veterinarian"} description="Qualification, clinic and approval information." />
+      <Panel className="mb-5">
+        <ProfileImageUploader
+          preview={vet.profileImage?.url || ""}
+          onChoose={chooseVetImage}
+          loading={savingImage}
+          showDelete={false}
+        />
+        {!vet.isActive && (
+          <p className="mt-3 rounded-xl border border-amber-400/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-300">
+            Image upload is available after the veterinarian profile is active.
+          </p>
+        )}
+      </Panel>
       <Panel className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <InfoBlock label="Email" value={vet.userId?.email} />
         <InfoBlock label="Specialization" value={vet.specialization} />
@@ -660,6 +796,33 @@ export const VetDetails = () => {
         <InfoBlock label="Status" value={<StatusBadge status={vet.status} />} />
         <InfoBlock label="Address" value={clinicAddress || vet.address} />
         <InfoBlock label="Bio" value={vet.about || vet.bio} />
+      </Panel>
+      <Panel className="mt-5">
+        <div className="mb-5">
+          <h2 className="text-xl font-bold text-white">Edit Profile</h2>
+          <p className="mt-1 text-sm text-slate-400">
+            Admin can update the public veterinarian profile fields.
+          </p>
+        </div>
+        {profileForm && (
+          <form onSubmit={saveProfile} className="grid gap-4 md:grid-cols-2">
+            <Field label="Qualification" value={profileForm.qualification} onChange={(value) => setProfileField("qualification", value)} required />
+            <Field as="select" label="Specialization" value={profileForm.specialization} onChange={(value) => setProfileField("specialization", value)} options={["General Veterinary", "Surgery", "Dermatology", "Dentistry", "Cardiology", "Orthopedics", "Emergency Care", "Other"].map((value) => ({ value, label: value }))} required />
+            <Field label="Experience" type="number" min="0" value={profileForm.experience} onChange={(value) => setProfileField("experience", value)} required />
+            <Field label="Consultation Fee" type="number" min="0" value={profileForm.consultationFee} onChange={(value) => setProfileField("consultationFee", value)} required />
+            <Field label="Clinic Name" value={profileForm.clinicName} onChange={(value) => setProfileField("clinicName", value)} required />
+            <Field label="Street" value={profileForm.clinicAddress.street} onChange={(value) => setProfileAddress("street", value)} />
+            <Field label="City" value={profileForm.clinicAddress.city} onChange={(value) => setProfileAddress("city", value)} required />
+            <Field label="State" value={profileForm.clinicAddress.state} onChange={(value) => setProfileAddress("state", value)} required />
+            <Field label="Postal Code" value={profileForm.clinicAddress.postalCode} onChange={(value) => setProfileAddress("postalCode", value)} />
+            <Field as="textarea" label="About" value={profileForm.about} onChange={(value) => setProfileField("about", value)} className="md:col-span-2" />
+            <div className="md:col-span-2">
+              <Button type="submit" disabled={savingProfile}>
+                {savingProfile ? "Saving..." : "Save Profile"}
+              </Button>
+            </div>
+          </form>
+        )}
       </Panel>
       <Panel className="mt-5">
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3">

@@ -5,6 +5,9 @@ import OwnerLayout from "../layouts/OwnerLayout";
 import Home from "../pages/public/Home";
 import About from "../pages/public/About";
 import Contact from "../pages/public/Contact";
+import PublicProducts from "../pages/public/Products";
+import PublicCart from "../pages/public/PublicCart";
+import ApplyVet from "../pages/public/ApplyVet";
 import Login from "../pages/auth/Login";
 // Email verification before login temporarily disabled.
 // import VerifyEmail from "../pages/auth/VerifyEmail";
@@ -62,6 +65,7 @@ import AdminPets from "../pages/admin/pets/Pets";
 import AdminPetDetails from "../pages/admin/pets/PetDetails";
 
 import ManageVets from "../pages/admin/veterinarians/ManageVets";
+import AddVet from "../pages/admin/veterinarians/AddVet";
 import AdminVetDetails from "../pages/admin/veterinarians/VetDetails";
 
 import ManageGroomers from "../pages/admin/groomers/ManageGroomers";
@@ -110,11 +114,14 @@ const AppRoutes = () => {
         <Route path="/" element={<Home />} />
         <Route path="/about" element={<About />} />
         <Route path="/contact" element={<Contact />} />
+        <Route path="/products" element={<PublicProducts />} />
+        <Route path="/cart" element={<PublicCart />} />
       </Route>
 
       {/* Authentication */}
       <Route path="/register" element={<Register />} />
       <Route path="/login" element={<Login />} />
+      <Route path="/apply-vet" element={<ApplyVet />} />
 
       {/* Protected owner routes */}
       <Route element={<ProtectedRoute allowedRole="owner" />}>
@@ -189,6 +196,7 @@ const AppRoutes = () => {
 
           {/* Veterinarians */}
           <Route path="veterinarians" element={<ManageVets />} />
+          <Route path="veterinarians/add" element={<AddVet />} />
           <Route
             path="veterinarians/:id"
             element={<AdminVetDetails />}

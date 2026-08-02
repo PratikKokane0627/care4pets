@@ -12,28 +12,28 @@ const services = [
     description:
       "Book appointments with trusted veterinarians and manage your pet's medical visits.",
     icon: <FiActivity />,
-    link: "/appointments",
+    link: "/register",
   },
   {
     title: "Pet Grooming",
     description:
       "Schedule professional grooming services to keep your pet healthy, clean and happy.",
     icon: <FiScissors />,
-    link: "/grooming",
+    link: "/register",
   },
   {
     title: "Vaccination Tracking",
     description:
       "Track vaccination history and receive reminders for upcoming vaccine dates.",
     icon: <FiCalendar />,
-    link: "/vaccinations",
+    link: "/register",
   },
   {
     title: "Pet Shop",
     description:
       "Explore pet food, healthcare products, toys and grooming accessories.",
     icon: <FiShoppingBag />,
-    link: "/shop",
+    link: "/products",
   },
 ];
 
@@ -90,7 +90,7 @@ const ServicesSection = () => {
                 to={service.link}
                 className="mt-6 font-semibold text-cyan-400 transition hover:text-cyan-300"
               >
-                Learn more →
+                Learn more ?
               </Link>
             </article>
           ))}
@@ -101,3 +101,4 @@ const ServicesSection = () => {
 };
 
 export default ServicesSection;
+

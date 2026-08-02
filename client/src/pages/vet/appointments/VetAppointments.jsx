@@ -77,11 +77,47 @@ const VetAppointments = () => {
   const actionButtons = (appointment) => {
     const status = String(appointment.status).toLowerCase();
     return (
-      <>
-        {status === "pending" && <button type="button" onClick={() => setModal({ type: "accept", appointment })} className="inline-flex items-center justify-center gap-2 rounded-xl border border-emerald-400/30 px-4 py-2.5 text-sm font-semibold text-emerald-300 hover:bg-emerald-500/10"><Check size={16} /> Accept</button>}
-        {status === "pending" && <button type="button" onClick={() => setModal({ type: "reject", appointment })} className="inline-flex items-center justify-center gap-2 rounded-xl border border-red-400/30 px-4 py-2.5 text-sm font-semibold text-red-300 hover:bg-red-500/10"><X size={16} /> Reject</button>}
-        {status === "accepted" && <button type="button" onClick={() => setModal({ type: "complete", appointment })} className="inline-flex items-center justify-center gap-2 rounded-xl border border-cyan-400/30 px-4 py-2.5 text-sm font-semibold text-cyan-300 hover:bg-cyan-500/10"><FileCheck size={16} /> Complete</button>}
-      </>
+      <div className="flex flex-wrap items-center gap-2">
+        {status === "pending" && (
+          <button
+            type="button"
+            title="Accept appointment"
+            onClick={() => setModal({ type: "accept", appointment })}
+            className="group inline-flex items-center justify-center gap-2 rounded-full border border-emerald-300/25 bg-emerald-400/10 px-4 py-2.5 text-sm font-bold text-emerald-200 shadow-sm shadow-emerald-950/20 transition hover:-translate-y-0.5 hover:border-emerald-200/45 hover:bg-emerald-400/18 hover:text-white focus:outline-none focus:ring-2 focus:ring-emerald-300/35"
+          >
+            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-300/15 transition group-hover:bg-emerald-300/25">
+              <Check size={14} />
+            </span>
+            Accept
+          </button>
+        )}
+        {status === "pending" && (
+          <button
+            type="button"
+            title="Reject appointment"
+            onClick={() => setModal({ type: "reject", appointment })}
+            className="group inline-flex items-center justify-center gap-2 rounded-full border border-red-300/25 bg-red-400/10 px-4 py-2.5 text-sm font-bold text-red-200 shadow-sm shadow-red-950/20 transition hover:-translate-y-0.5 hover:border-red-200/45 hover:bg-red-400/18 hover:text-white focus:outline-none focus:ring-2 focus:ring-red-300/35"
+          >
+            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-red-300/15 transition group-hover:bg-red-300/25">
+              <X size={14} />
+            </span>
+            Reject
+          </button>
+        )}
+        {status === "accepted" && (
+          <button
+            type="button"
+            title="Complete appointment"
+            onClick={() => setModal({ type: "complete", appointment })}
+            className="group inline-flex items-center justify-center gap-2 rounded-full border border-cyan-300/25 bg-cyan-400/10 px-4 py-2.5 text-sm font-bold text-cyan-200 shadow-sm shadow-cyan-950/20 transition hover:-translate-y-0.5 hover:border-cyan-200/45 hover:bg-cyan-400/18 hover:text-white focus:outline-none focus:ring-2 focus:ring-cyan-300/35"
+          >
+            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-cyan-300/15 transition group-hover:bg-cyan-300/25">
+              <FileCheck size={14} />
+            </span>
+            Complete
+          </button>
+        )}
+      </div>
     );
   };
 
