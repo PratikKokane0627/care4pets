@@ -1,7 +1,10 @@
 import GroomerProfile from "../models/GroomerProfile.js";
 import User from "../models/User.js";
+import Review from "../models/Review.js";
 import ApiError from "../utils/ApiError.js";
 import asyncHandler from "../utils/asyncHandler.js";
+import uploadToCloudinary from "../utils/uploadToCloudinary.js";
+import deleteUploadedImage from "../utils/deleteUploadedImage.js";
 
 const validateAvailability = (availability) => {
   if (!Array.isArray(availability)) {
@@ -45,6 +48,100 @@ export const updateMyAvailability = asyncHandler(async (req, res) => {
   profile.availability = req.body.availability;
   await profile.save();
   res.json({ success: true, message: "Availability updated", availability: profile.availability });
+});
+
+export const uploadMyGroomerImage = asyncHandler(async (req, res) => {
+  if (!req.file) throw new ApiError(400, "Please upload an image");
+
+  const profile = await GroomerProfile.findOne({ userId: req.user._id });
+  if (!profile) throw new ApiError(404, "Groomer profile not found");
+
+  const user = await User.findById(req.user._id).select("+profileImagePublicId");
+  const oldPublicId = user.profileImagePublicId;
+  const result = await uploadToCloudinary(
+    req.file.buffer,
+    "care4pets/groomers",
+    req.file.mimetype
+  );
+
+  try {
+    user.profileImage = result.secure_url;
+    user.profileImagePublicId = result.public_id;
+    await user.save({ validateBeforeSave: false });
+  } catch (error) {
+    await deleteUploadedImage(result.public_id);
+    throw error;
+  }
+
+  if (oldPublicId) await deleteUploadedImage(oldPublicId);
+
+  res.json({
+    success: true,
+    message: "Groomer profile image uploaded successfully",
+    profileImage: user.profileImage,
+    user,
+  });
+});
+
+export const deleteMyGroomerImage = asyncHandler(async (req, res) => {
+  const profile = await GroomerProfile.findOne({ userId: req.user._id });
+  if (!profile) throw new ApiError(404, "Groomer profile not found");
+
+  const user = await User.findById(req.user._id).select("+profileImagePublicId");
+
+  if (user.profileImagePublicId) {
+    await deleteUploadedImage(user.profileImagePublicId);
+  }
+
+  user.profileImage = "";
+  user.profileImagePublicId = "";
+  await user.save({ validateBeforeSave: false });
+
+  res.json({
+    success: true,
+    message: "Groomer profile image deleted successfully",
+    profileImage: user.profileImage,
+    user,
+  });
+});
+
+export const getMyGroomerReviews = asyncHandler(async (req, res) => {
+  const [reviews, ratingRows] = await Promise.all([
+    Review.find({
+      reviewType: "groomer",
+      groomerId: req.user._id,
+      isActive: true,
+    })
+      .populate("userId", "name email profileImage")
+      .populate("groomingBookingId", "_id bookingDate bookingTime status")
+      .sort({ createdAt: -1 }),
+    Review.aggregate([
+      {
+        $match: {
+          reviewType: "groomer",
+          groomerId: req.user._id,
+          isActive: true,
+        },
+      },
+      { $group: { _id: "$rating", count: { $sum: 1 } } },
+    ]),
+  ]);
+
+  const totalReviews = reviews.length;
+  const averageRating =
+    totalReviews > 0
+      ? reviews.reduce((sum, review) => sum + review.rating, 0) / totalReviews
+      : 0;
+  const distribution = [5, 4, 3, 2, 1].map((rating) => ({
+    rating,
+    count: ratingRows.find((row) => row._id === rating)?.count || 0,
+  }));
+
+  res.json({
+    success: true,
+    summary: { averageRating, totalReviews, distribution },
+    reviews,
+  });
 });
 
 export const getAvailableGroomers = asyncHandler(async (req, res) => {

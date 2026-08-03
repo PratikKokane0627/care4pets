@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 
 import GroomingBooking from "../models/GroomingBooking.js";
 import GroomingService from "../models/GroomingService.js";
+import GroomerProfile from "../models/GroomerProfile.js";
 import Pet from "../models/Pet.js";
 // Notification code temporarily disabled.
 // import Notification from "../models/notificationModel.js";
@@ -63,6 +64,7 @@ export const createGroomingBooking = asyncHandler(
     const {
       petId,
       serviceId,
+      groomerId,
       bookingDate,
       bookingTime,
       specialInstructions,
@@ -81,6 +83,10 @@ export const createGroomingBooking = asyncHandler(
 
     if (!mongoose.Types.ObjectId.isValid(serviceId)) {
       throw new ApiError(400, "Invalid grooming service ID");
+    }
+
+    if (groomerId && !mongoose.Types.ObjectId.isValid(groomerId)) {
+      throw new ApiError(400, "Invalid groomer ID");
     }
 
     const pet = await Pet.findOne({
@@ -140,6 +146,79 @@ export const createGroomingBooking = asyncHandler(
       );
     }
 
+    let selectedGroomer = null;
+    const dayName = parsedBookingDate.toLocaleDateString("en-US", {
+      weekday: "long",
+    });
+
+    if (groomerId) {
+      selectedGroomer = await User.findOne({
+        _id: groomerId,
+        role: "groomer",
+        status: "active",
+      });
+
+      const groomerProfile = await GroomerProfile.findOne({
+        userId: groomerId,
+        isActive: true,
+      });
+
+      if (!selectedGroomer || !groomerProfile) {
+        throw new ApiError(404, "Active groomer not found");
+      }
+
+      const availableSlot = groomerProfile.availability?.find(
+        (slot) =>
+          slot.day === dayName &&
+          slot.isAvailable &&
+          slot.startTime <= trimmedBookingTime &&
+          slot.endTime > trimmedBookingTime
+      );
+
+      if (!availableSlot) {
+        throw new ApiError(400, "Selected groomer is not available for this date and time");
+      }
+    } else {
+      const availableProfiles = await GroomerProfile.find({
+        isActive: true,
+        availability: {
+          $elemMatch: {
+            day: dayName,
+            isAvailable: true,
+            startTime: { $lte: trimmedBookingTime },
+            endTime: { $gt: trimmedBookingTime },
+          },
+        },
+      }).populate({
+        path: "userId",
+        match: { role: "groomer", status: "active" },
+        select: "_id name",
+      });
+
+      for (const profile of availableProfiles) {
+        if (!profile.userId) continue;
+
+        const conflict = await GroomingBooking.exists({
+          groomerId: profile.userId._id,
+          bookingDate: parsedBookingDate,
+          bookingTime: trimmedBookingTime,
+          status: {
+            $in: ["pending", "accepted"],
+          },
+          isActive: true,
+        });
+
+        if (!conflict) {
+          selectedGroomer = profile.userId;
+          break;
+        }
+      }
+
+      if (!selectedGroomer) {
+        throw new ApiError(404, "No groomer is available for this date and time");
+      }
+    }
+
     const existingBooking = await GroomingBooking.findOne({
       ownerId: req.user._id,
       petId,
@@ -158,10 +237,27 @@ export const createGroomingBooking = asyncHandler(
       );
     }
 
+    if (selectedGroomer) {
+      const groomerConflict = await GroomingBooking.exists({
+        groomerId: selectedGroomer._id,
+        bookingDate: parsedBookingDate,
+        bookingTime: trimmedBookingTime,
+        status: {
+          $in: ["pending", "accepted"],
+        },
+        isActive: true,
+      });
+
+      if (groomerConflict) {
+        throw new ApiError(409, "Selected groomer already has a booking in this slot");
+      }
+    }
+
     const booking = await GroomingBooking.create({
       ownerId: req.user._id,
       petId,
       serviceId,
+      groomerId: selectedGroomer?._id || null,
       bookingDate: parsedBookingDate,
       bookingTime: trimmedBookingTime,
       price: service.price,
@@ -190,7 +286,8 @@ export const createGroomingBooking = asyncHandler(
           "serviceId",
           "serviceName description category price duration image"
         )
-        .populate("ownerId", "name email phone");
+        .populate("ownerId", "name email phone")
+        .populate("groomerId", "name email phone profileImage");
 
     res.status(201).json({
       success: true,
@@ -487,7 +584,7 @@ export const acceptGroomingBooking = asyncHandler(async (req, res) => {
     );
   }
 
-  if (booking.groomerId) {
+  if (booking.groomerId && booking.groomerId.toString() !== req.user._id.toString()) {
     throw new ApiError(
       400,
       "This booking has already been assigned to a groomer"
@@ -555,7 +652,7 @@ export const rejectGroomingBooking = asyncHandler(async (req, res) => {
     );
   }
 
-  if (booking.groomerId) {
+  if (booking.groomerId && booking.groomerId.toString() !== req.user._id.toString()) {
     throw new ApiError(
       400,
       "This booking has already been assigned to a groomer"

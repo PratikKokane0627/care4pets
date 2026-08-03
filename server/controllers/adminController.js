@@ -224,20 +224,62 @@ export const getVaccinations = asyncHandler(async (req, res) => {
 export const getUsers = asyncHandler(async (req, res) => {
   const { page, limit, skip } = parsePagination(req.query);
   const filter = {};
+  const requestedStatus = req.query.status;
 
   if (req.query.role) filter.role = req.query.role;
-  if (req.query.status) filter.status = req.query.status;
   if (req.query.search?.trim()) {
     const search = new RegExp(escapeRegex(req.query.search.trim()), "i");
     filter.$or = [{ name: search }, { email: search }, { phone: search }];
   }
 
-  const [users, total] = await Promise.all([
-    User.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit),
-    User.countDocuments(filter),
-  ]);
+  const users = await User.find(filter).lean().sort({ createdAt: -1 });
 
-  res.json({ success: true, users, pagination: pagination(page, limit, total) });
+  const vetUserIds = users
+    .filter((user) => user.role === "vet")
+    .map((user) => user._id);
+
+  const vetProfiles = vetUserIds.length
+    ? await VetProfile.find({ userId: { $in: vetUserIds } })
+        .select("_id userId status isActive")
+        .lean()
+    : [];
+
+  const vetProfileByUserId = new Map(
+    vetProfiles.map((profile) => [profile.userId.toString(), profile])
+  );
+
+  const usersWithVetStatus = users.map((user) => {
+    if (user.role !== "vet") return user;
+
+    const vetProfile = vetProfileByUserId.get(user._id.toString());
+
+    return {
+      ...user,
+      accountStatus: user.status,
+      vetProfileId: vetProfile?._id || null,
+      vetApprovalStatus: vetProfile?.status || user.status,
+      vetIsActive: vetProfile?.isActive || false,
+    };
+  });
+
+  const filteredUsers = requestedStatus
+    ? usersWithVetStatus.filter((user) => {
+        const visibleStatus =
+          user.role === "vet"
+            ? user.vetApprovalStatus || user.status
+            : user.status;
+
+        return String(visibleStatus).toLowerCase() === String(requestedStatus).toLowerCase();
+      })
+    : usersWithVetStatus;
+
+  const pagedUsers = filteredUsers.slice(skip, skip + limit);
+
+  res.json({
+    success: true,
+    users: pagedUsers,
+    pagination: pagination(page, limit, filteredUsers.length),
+  });
 });
 
 export const getUserById = asyncHandler(async (req, res) => {

@@ -3,6 +3,9 @@ import Review from "../models/Review.js";
 import Product from "../models/Product.js";
 import Order from "../models/Order.js";
 import User from "../models/User.js";
+import Appointment from "../models/Appointment.js";
+import GroomingBooking from "../models/GroomingBooking.js";
+import VetProfile from "../models/VetProfile.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import ApiError from "../utils/ApiError.js";
 
@@ -13,6 +16,7 @@ const updateProductRating = async (productId, session = null) => {
     [
       {
         $match: {
+          reviewType: "product",
           productId: new mongoose.Types.ObjectId(productId),
           isActive: true,
         },
@@ -50,6 +54,41 @@ const updateProductRating = async (productId, session = null) => {
       session,
       runValidators: true,
     }
+  );
+};
+
+const updateVetRating = async (vetId, session = null) => {
+  const aggregateOptions = session ? { session } : {};
+
+  const result = await Review.aggregate(
+    [
+      {
+        $match: {
+          reviewType: "vet",
+          vetId: new mongoose.Types.ObjectId(vetId),
+          isActive: true,
+        },
+      },
+      {
+        $group: {
+          _id: "$vetId",
+          averageRating: { $avg: "$rating" },
+          totalReviews: { $sum: 1 },
+        },
+      },
+    ],
+    aggregateOptions
+  );
+
+  const averageRating =
+    result.length > 0 ? Number(result[0].averageRating.toFixed(1)) : 0;
+
+  const totalReviews = result.length > 0 ? result[0].totalReviews : 0;
+
+  await VetProfile.findByIdAndUpdate(
+    vetId,
+    { averageRating, totalReviews },
+    { session, runValidators: true }
   );
 };
 
@@ -151,62 +190,46 @@ export const addReview = asyncHandler(async (req, res) => {
   }
 
   const existingReview = await Review.findOne({
-  userId,
-  productId,
-});
+    userId,
+    reviewType: "product",
+    productId,
+  });
 
-if (existingReview?.isActive) {
-  throw new ApiError(
-    409,
-    "You have already reviewed this product"
-  );
-}
-
-  const session = await mongoose.startSession();
+  if (existingReview?.isActive) {
+    throw new ApiError(
+      409,
+      "You have already reviewed this product"
+    );
+  }
 
   let createdReview;
 
-  try {
-   await session.withTransaction(async () => {
   if (existingReview && !existingReview.isActive) {
     existingReview.orderId = orderId;
     existingReview.rating = numericRating;
     existingReview.comment = trimmedComment;
     existingReview.isVerifiedPurchase = true;
     existingReview.isActive = true;
+    existingReview.deletedBy = null;
+    existingReview.deletedAt = null;
 
-    await existingReview.save({ session });
+    await existingReview.save();
 
     createdReview = existingReview;
   } else {
-    const reviews = await Review.create(
-      [
-        {
-          userId,
-          productId,
-          orderId,
-          rating: numericRating,
-          comment: trimmedComment,
-          isVerifiedPurchase: true,
-          isActive: true,
-        },
-      ],
-      {
-        session,
-      }
-    );
-
-    createdReview = reviews[0];
+    createdReview = await Review.create({
+      userId,
+      reviewType: "product",
+      productId,
+      orderId,
+      rating: numericRating,
+      comment: trimmedComment,
+      isVerifiedPurchase: true,
+      isActive: true,
+    });
   }
 
-  await updateProductRating(
-    productId,
-    session
-  );
-});
-  } finally {
-    await session.endSession();
-  }
+  await updateProductRating(productId);
 
   await createdReview.populate(
     "userId",
@@ -217,6 +240,336 @@ if (existingReview?.isActive) {
     success: true,
     message: "Review added successfully",
     review: createdReview,
+  });
+});
+
+export const addVetReview = asyncHandler(async (req, res) => {
+  const userId = req.user._id;
+  const { vetId, appointmentId, rating, comment } = req.body;
+
+  if (!vetId || !appointmentId || rating === undefined || !comment?.trim()) {
+    throw new ApiError(
+      400,
+      "Veterinarian, appointment, rating and comment are required"
+    );
+  }
+
+  if (!mongoose.Types.ObjectId.isValid(vetId)) {
+    throw new ApiError(400, "Invalid veterinarian ID");
+  }
+
+  if (!mongoose.Types.ObjectId.isValid(appointmentId)) {
+    throw new ApiError(400, "Invalid appointment ID");
+  }
+
+  const numericRating = Number(rating);
+
+  if (!Number.isInteger(numericRating) || numericRating < 1 || numericRating > 5) {
+    throw new ApiError(400, "Rating must be an integer between 1 and 5");
+  }
+
+  const trimmedComment = comment.trim();
+
+  if (trimmedComment.length < 3) {
+    throw new ApiError(400, "Comment must contain at least 3 characters");
+  }
+
+  if (trimmedComment.length > 1000) {
+    throw new ApiError(400, "Comment cannot exceed 1000 characters");
+  }
+
+  const vet = await VetProfile.findOne({
+    _id: vetId,
+    status: "approved",
+    isActive: true,
+  }).populate({
+    path: "userId",
+    match: { role: "vet", status: "active" },
+  });
+
+  if (!vet || !vet.userId) {
+    throw new ApiError(404, "Veterinarian not found");
+  }
+
+  const appointment = await Appointment.findOne({
+    _id: appointmentId,
+    ownerId: userId,
+    vetId,
+    status: "completed",
+    isActive: true,
+  });
+
+  if (!appointment) {
+    throw new ApiError(
+      400,
+      "You can review a veterinarian only after a completed appointment"
+    );
+  }
+
+  const existingReview = await Review.findOne({
+    userId,
+    reviewType: "vet",
+    vetId,
+  });
+
+  if (existingReview?.isActive) {
+    throw new ApiError(409, "You have already reviewed this veterinarian");
+  }
+
+  let createdReview;
+
+  if (existingReview && !existingReview.isActive) {
+    existingReview.appointmentId = appointmentId;
+    existingReview.rating = numericRating;
+    existingReview.comment = trimmedComment;
+    existingReview.isVerifiedPurchase = true;
+    existingReview.isActive = true;
+    existingReview.deletedBy = null;
+    existingReview.deletedAt = null;
+
+    await existingReview.save();
+    createdReview = existingReview;
+  } else {
+    createdReview = await Review.create({
+      userId,
+      reviewType: "vet",
+      vetId,
+      appointmentId,
+      rating: numericRating,
+      comment: trimmedComment,
+      isVerifiedPurchase: true,
+      isActive: true,
+    });
+  }
+
+  await updateVetRating(vetId);
+
+  await createdReview.populate("userId", "name profileImage");
+  await createdReview.populate("appointmentId", "_id appointmentDate appointmentTime");
+
+  res.status(201).json({
+    success: true,
+    message: "Veterinarian review added successfully",
+    review: createdReview,
+  });
+});
+
+export const getVetReviewsById = asyncHandler(async (req, res) => {
+  const { vetId } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(vetId)) {
+    throw new ApiError(400, "Invalid veterinarian ID");
+  }
+
+  const vet = await VetProfile.findOne({
+    _id: vetId,
+    status: "approved",
+    isActive: true,
+  }).select("averageRating totalReviews");
+
+  if (!vet) {
+    throw new ApiError(404, "Veterinarian not found");
+  }
+
+  const [reviews, ratingStats] = await Promise.all([
+    Review.find({
+      reviewType: "vet",
+      vetId,
+      isActive: true,
+    })
+      .populate("userId", "name profileImage")
+      .populate("appointmentId", "_id appointmentDate appointmentTime")
+      .sort({ createdAt: -1 }),
+    Review.aggregate([
+      {
+        $match: {
+          reviewType: "vet",
+          vetId: new mongoose.Types.ObjectId(vetId),
+          isActive: true,
+        },
+      },
+      { $group: { _id: "$rating", count: { $sum: 1 } } },
+    ]),
+  ]);
+
+  const ratingBreakdown = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
+  ratingStats.forEach((item) => {
+    ratingBreakdown[item._id] = item.count;
+  });
+
+  res.status(200).json({
+    success: true,
+    message: "Veterinarian reviews fetched successfully",
+    vet: {
+      _id: vet._id,
+      averageRating: vet.averageRating,
+      totalReviews: vet.totalReviews,
+    },
+    ratingBreakdown,
+    reviews,
+  });
+});
+
+export const addGroomerReview = asyncHandler(async (req, res) => {
+  const userId = req.user._id;
+  const { groomerId, groomingBookingId, rating, comment } = req.body;
+
+  if (!groomerId || !groomingBookingId || rating === undefined || !comment?.trim()) {
+    throw new ApiError(400, "Groomer, booking, rating and comment are required");
+  }
+
+  if (!mongoose.Types.ObjectId.isValid(groomerId)) {
+    throw new ApiError(400, "Invalid groomer ID");
+  }
+
+  if (!mongoose.Types.ObjectId.isValid(groomingBookingId)) {
+    throw new ApiError(400, "Invalid grooming booking ID");
+  }
+
+  const numericRating = Number(rating);
+
+  if (!Number.isInteger(numericRating) || numericRating < 1 || numericRating > 5) {
+    throw new ApiError(400, "Rating must be an integer between 1 and 5");
+  }
+
+  const trimmedComment = comment.trim();
+
+  if (trimmedComment.length < 3) {
+    throw new ApiError(400, "Comment must contain at least 3 characters");
+  }
+
+  if (trimmedComment.length > 1000) {
+    throw new ApiError(400, "Comment cannot exceed 1000 characters");
+  }
+
+  const groomer = await User.findOne({
+    _id: groomerId,
+    role: "groomer",
+    status: "active",
+  });
+
+  if (!groomer) {
+    throw new ApiError(404, "Groomer not found");
+  }
+
+  const booking = await GroomingBooking.findOne({
+    _id: groomingBookingId,
+    ownerId: userId,
+    groomerId,
+    status: "completed",
+    isActive: true,
+  });
+
+  if (!booking) {
+    throw new ApiError(400, "You can review a groomer only after a completed grooming booking");
+  }
+
+  const existingReview = await Review.findOne({
+    userId,
+    reviewType: "groomer",
+    groomerId,
+  });
+
+  if (existingReview?.isActive) {
+    throw new ApiError(409, "You have already reviewed this groomer");
+  }
+
+  let createdReview;
+
+  if (existingReview && !existingReview.isActive) {
+    existingReview.groomingBookingId = groomingBookingId;
+    existingReview.rating = numericRating;
+    existingReview.comment = trimmedComment;
+    existingReview.isVerifiedPurchase = true;
+    existingReview.isActive = true;
+    existingReview.deletedBy = null;
+    existingReview.deletedAt = null;
+    await existingReview.save();
+    createdReview = existingReview;
+  } else {
+    createdReview = await Review.create({
+      userId,
+      reviewType: "groomer",
+      groomerId,
+      groomingBookingId,
+      rating: numericRating,
+      comment: trimmedComment,
+      isVerifiedPurchase: true,
+      isActive: true,
+    });
+  }
+
+  await createdReview.populate("userId", "name profileImage");
+  await createdReview.populate("groomerId", "name email profileImage");
+  await createdReview.populate("groomingBookingId", "_id bookingDate bookingTime status");
+
+  res.status(201).json({
+    success: true,
+    message: "Groomer review added successfully",
+    review: createdReview,
+  });
+});
+
+export const getGroomerReviewsById = asyncHandler(async (req, res) => {
+  const { groomerId } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(groomerId)) {
+    throw new ApiError(400, "Invalid groomer ID");
+  }
+
+  const groomer = await User.findOne({
+    _id: groomerId,
+    role: "groomer",
+    status: "active",
+  }).select("name profileImage");
+
+  if (!groomer) {
+    throw new ApiError(404, "Groomer not found");
+  }
+
+  const [reviews, ratingStats] = await Promise.all([
+    Review.find({
+      reviewType: "groomer",
+      groomerId,
+      isActive: true,
+    })
+      .populate("userId", "name profileImage")
+      .populate("groomingBookingId", "_id bookingDate bookingTime status")
+      .sort({ createdAt: -1 }),
+    Review.aggregate([
+      {
+        $match: {
+          reviewType: "groomer",
+          groomerId: new mongoose.Types.ObjectId(groomerId),
+          isActive: true,
+        },
+      },
+      { $group: { _id: "$rating", count: { $sum: 1 } } },
+    ]),
+  ]);
+
+  const totalReviews = reviews.length;
+  const averageRating =
+    totalReviews > 0
+      ? reviews.reduce((sum, review) => sum + review.rating, 0) / totalReviews
+      : 0;
+  const ratingBreakdown = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
+  ratingStats.forEach((item) => {
+    ratingBreakdown[item._id] = item.count;
+  });
+
+  res.status(200).json({
+    success: true,
+    message: "Groomer reviews fetched successfully",
+    groomer: {
+      _id: groomer._id,
+      name: groomer.name,
+      profileImage: groomer.profileImage,
+      averageRating,
+      totalReviews,
+    },
+    ratingBreakdown,
+    reviews,
   });
 });
 
@@ -275,6 +628,7 @@ export const getProductReviews = asyncHandler(async (req, res) => {
   const [reviews, totalReviews, ratingStats] =
     await Promise.all([
       Review.find({
+        reviewType: "product",
         productId,
         isActive: true,
       })
@@ -287,6 +641,7 @@ export const getProductReviews = asyncHandler(async (req, res) => {
         .limit(pageLimit),
 
       Review.countDocuments({
+        reviewType: "product",
         productId,
         isActive: true,
       }),
@@ -294,6 +649,7 @@ export const getProductReviews = asyncHandler(async (req, res) => {
       Review.aggregate([
         {
           $match: {
+            reviewType: "product",
             productId:
               new mongoose.Types.ObjectId(productId),
             isActive: true,
@@ -389,39 +745,31 @@ export const updateReview = asyncHandler(async (req, res) => {
     );
   }
 
-  const session = await mongoose.startSession();
+  const review = await Review.findById(id);
 
-  let updatedReview;
-
-  try {
-    await session.withTransaction(async () => {
-      const review = await Review.findById(id).session(session);
-
-      if (!review || !review.isActive) {
-        throw new ApiError(404, "Review not found");
-      }
-
-      if (review.userId.toString() !== userId.toString()) {
-        throw new ApiError(
-          403,
-          "You are not authorized to update this review"
-        );
-      }
-
-      review.rating = numericRating;
-      review.comment = comment.trim();
-
-      await review.save({ session });
-
-      await updateProductRating(review.productId, session);
-
-      updatedReview = review;
-    });
-  } finally {
-    await session.endSession();
+  if (!review || !review.isActive) {
+    throw new ApiError(404, "Review not found");
   }
 
-  await updatedReview.populate(
+  if (review.userId.toString() !== userId.toString()) {
+    throw new ApiError(
+      403,
+      "You are not authorized to update this review"
+    );
+  }
+
+  review.rating = numericRating;
+  review.comment = comment.trim();
+
+  await review.save();
+
+  if (review.reviewType === "vet") {
+    await updateVetRating(review.vetId);
+  } else if (review.reviewType === "product") {
+    await updateProductRating(review.productId);
+  }
+
+  await review.populate(
     "userId",
     "name profileImage"
   );
@@ -429,7 +777,7 @@ export const updateReview = asyncHandler(async (req, res) => {
   res.status(200).json({
     success: true,
     message: "Review updated successfully",
-    review: updatedReview,
+    review,
   });
 });
 
@@ -442,47 +790,39 @@ export const deleteReview = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Invalid review ID");
   }
 
-  const session = await mongoose.startSession();
+  const review = await Review.findById(id);
 
-  let deletedReview;
+  if (!review || !review.isActive) {
+    throw new ApiError(404, "Review not found");
+  }
 
-  try {
-    await session.withTransaction(async () => {
-      const review = await Review.findById(id).session(session);
+  if (review.userId.toString() !== userId.toString()) {
+    throw new ApiError(
+      403,
+      "You are not authorized to delete this review"
+    );
+  }
 
-      if (!review || !review.isActive) {
-        throw new ApiError(404, "Review not found");
-      }
+  review.isActive = false;
 
-      if (review.userId.toString() !== userId.toString()) {
-        throw new ApiError(
-          403,
-          "You are not authorized to delete this review"
-        );
-      }
+  await review.save();
 
-      review.isActive = false;
-
-      await review.save({ session });
-
-      await updateProductRating(
-        review.productId,
-        session
-      );
-
-      deletedReview = review;
-    });
-  } finally {
-    await session.endSession();
+  if (review.reviewType === "vet") {
+    await updateVetRating(review.vetId);
+  } else if (review.reviewType === "product") {
+    await updateProductRating(review.productId);
   }
 
   res.status(200).json({
     success: true,
     message: "Review deleted successfully",
     review: {
-      _id: deletedReview._id,
-      productId: deletedReview.productId,
-      isActive: deletedReview.isActive,
+      _id: review._id,
+      productId: review.productId,
+      vetId: review.vetId,
+      groomerId: review.groomerId,
+      reviewType: review.reviewType,
+      isActive: review.isActive,
     },
   });
 });
@@ -492,6 +832,7 @@ export const getAllReviews = asyncHandler(async (req, res) => {
     search,
     rating,
     isActive,
+    reviewType,
     page = 1,
     limit = 10,
     sortBy = "createdAt",
@@ -502,6 +843,13 @@ export const getAllReviews = asyncHandler(async (req, res) => {
 
   if (rating) {
     query.rating = Number(rating);
+  }
+
+  if (reviewType) {
+    if (!["product", "vet", "groomer"].includes(reviewType)) {
+      throw new ApiError(400, "Review type must be product, vet or groomer");
+    }
+    query.reviewType = reviewType;
   }
 
   if (isActive !== undefined) {
@@ -541,6 +889,68 @@ export const getAllReviews = asyncHandler(async (req, res) => {
       (product) => product._id
     );
 
+    const matchingVetUsers = await User.find({
+      role: "vet",
+      $or: [
+        {
+          name: {
+            $regex: searchText,
+            $options: "i",
+          },
+        },
+        {
+          email: {
+            $regex: searchText,
+            $options: "i",
+          },
+        },
+      ],
+    }).select("_id");
+
+    const matchingVets = await VetProfile.find({
+      $or: [
+        {
+          userId: {
+            $in: matchingVetUsers.map((user) => user._id),
+          },
+        },
+        {
+          clinicName: {
+            $regex: searchText,
+            $options: "i",
+          },
+        },
+        {
+          specialization: {
+            $regex: searchText,
+            $options: "i",
+          },
+        },
+      ],
+    }).select("_id");
+
+    const vetIds = matchingVets.map((vet) => vet._id);
+
+    const matchingGroomers = await User.find({
+      role: "groomer",
+      $or: [
+        {
+          name: {
+            $regex: searchText,
+            $options: "i",
+          },
+        },
+        {
+          email: {
+            $regex: searchText,
+            $options: "i",
+          },
+        },
+      ],
+    }).select("_id");
+
+    const groomerIds = matchingGroomers.map((groomer) => groomer._id);
+
     query.$or = [
       {
         comment: {
@@ -556,6 +966,16 @@ export const getAllReviews = asyncHandler(async (req, res) => {
       {
         productId: {
           $in: productIds,
+        },
+      },
+      {
+        vetId: {
+          $in: vetIds,
+        },
+      },
+      {
+        groomerId: {
+          $in: groomerIds,
         },
       },
     ];
@@ -599,9 +1019,26 @@ export const getAllReviews = asyncHandler(async (req, res) => {
         "productId",
         "productName images averageRating"
       )
+      .populate({
+        path: "vetId",
+        select: "clinicName specialization averageRating userId",
+        populate: { path: "userId", select: "name email profileImage" },
+      })
+      .populate(
+        "groomerId",
+        "name email profileImage"
+      )
       .populate(
         "orderId",
         "_id orderStatus"
+      )
+      .populate(
+        "appointmentId",
+        "_id status appointmentDate appointmentTime"
+      )
+      .populate(
+        "groomingBookingId",
+        "_id status bookingDate bookingTime"
       )
       .sort({
         [selectedSortField]: selectedSortOrder,
@@ -641,50 +1078,42 @@ export const adminDeleteReview = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Invalid review ID");
   }
 
-  const session = await mongoose.startSession();
+  const review = await Review.findById(id);
 
-  let deletedReview;
+  if (!review) {
+    throw new ApiError(404, "Review not found");
+  }
 
-  try {
-    await session.withTransaction(async () => {
-      const review = await Review.findById(id).session(session);
+  if (!review.isActive) {
+    throw new ApiError(
+      400,
+      "Review is already deleted"
+    );
+  }
 
-      if (!review) {
-        throw new ApiError(404, "Review not found");
-      }
+  review.isActive = false;
+  review.deletedBy = req.user._id;
+  review.deletedAt = new Date();
 
-      if (!review.isActive) {
-        throw new ApiError(
-          400,
-          "Review is already deleted"
-        );
-      }
+  await review.save();
 
-      review.isActive = false;
-      review.deletedBy = req.user._id;
-review.deletedAt = new Date();
-
-      await review.save({ session });
-
-      await updateProductRating(
-        review.productId,
-        session
-      );
-
-      deletedReview = review;
-    });
-  } finally {
-    await session.endSession();
+  if (review.reviewType === "vet") {
+    await updateVetRating(review.vetId);
+  } else if (review.reviewType === "product") {
+    await updateProductRating(review.productId);
   }
 
   res.status(200).json({
     success: true,
     message: "Review deleted successfully by admin",
     review: {
-      _id: deletedReview._id,
-      userId: deletedReview.userId,
-      productId: deletedReview.productId,
-      isActive: deletedReview.isActive,
+      _id: review._id,
+      userId: review.userId,
+      productId: review.productId,
+      vetId: review.vetId,
+      groomerId: review.groomerId,
+      reviewType: review.reviewType,
+      isActive: review.isActive,
     },
   });
 });

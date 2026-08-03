@@ -369,9 +369,15 @@ export const updateProfile = asyncHandler(async (req, res) => {
     if (typeof req.body.address !== "object" || Array.isArray(req.body.address)) {
       throw new ApiError(400, "Address must be an object");
     }
+    const nextAddress = { ...req.body.address };
+    if (nextAddress.zipCode !== undefined && nextAddress.postalCode === undefined) {
+      nextAddress.postalCode = nextAddress.zipCode;
+    }
+    delete nextAddress.zipCode;
+
     req.user.address = {
       ...req.user.address.toObject(),
-      ...req.body.address,
+      ...nextAddress,
     };
   }
 

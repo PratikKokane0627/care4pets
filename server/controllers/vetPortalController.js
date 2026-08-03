@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 
 import Appointment from "../models/Appointment.js";
 import Pet from "../models/Pet.js";
+import Review from "../models/Review.js";
 import VetProfile from "../models/VetProfile.js";
 import ApiError from "../utils/ApiError.js";
 import asyncHandler from "../utils/asyncHandler.js";
@@ -368,21 +369,69 @@ export const getVetPrescriptions = asyncHandler(async (req, res) => {
 });
 
 export const getVetReviews = asyncHandler(async (req, res) => {
+  const vet = await getMyVetProfile(req.user._id);
+  const { page, limit, skip } = parsePagination(req.query);
+  const [reviews, total] = await Promise.all([
+    Review.find({
+      reviewType: "vet",
+      vetId: vet._id,
+      isActive: true,
+    })
+      .populate("userId", "name email profileImage")
+      .populate({
+        path: "appointmentId",
+        select: "appointmentDate appointmentTime petId",
+        populate: { path: "petId", select: "petName species profileImage" },
+      })
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit),
+    Review.countDocuments({
+      reviewType: "vet",
+      vetId: vet._id,
+      isActive: true,
+    }),
+  ]);
+
   res.json({
     success: true,
-    reviews: [],
-    pagination: { currentPage: 1, totalPages: 1, total: 0, limit: Number(req.query.limit) || 10 },
+    reviews,
+    pagination: { currentPage: page, totalPages: Math.ceil(total / limit), total, limit },
   });
 });
 
 export const getVetReviewSummary = asyncHandler(async (req, res) => {
   const vet = await getMyVetProfile(req.user._id);
+  const ratingRows = await Review.aggregate([
+    {
+      $match: {
+        reviewType: "vet",
+        vetId: vet._id,
+        isActive: true,
+      },
+    },
+    {
+      $group: {
+        _id: "$rating",
+        count: { $sum: 1 },
+      },
+    },
+  ]);
+
+  const ratingCounts = ratingRows.reduce(
+    (current, row) => ({ ...current, [row._id]: row.count }),
+    {}
+  );
+
   res.json({
     success: true,
     summary: {
       averageRating: vet.averageRating || 0,
       totalReviews: vet.totalReviews || 0,
-      distribution: [5, 4, 3, 2, 1].map((rating) => ({ rating, count: 0 })),
+      distribution: [5, 4, 3, 2, 1].map((rating) => ({
+        rating,
+        count: ratingCounts[rating] || 0,
+      })),
     },
   });
 });
