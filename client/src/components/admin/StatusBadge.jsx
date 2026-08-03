@@ -15,6 +15,8 @@ const statusStyles = {
 
   processing: "bg-indigo-500/15 text-indigo-400",
   shipped: "bg-violet-500/15 text-violet-400",
+  product: "bg-cyan-500/15 text-cyan-300",
+  vet: "bg-indigo-500/15 text-indigo-300",
 };
 
 const StatusBadge = ({ status = "Unknown" }) => {

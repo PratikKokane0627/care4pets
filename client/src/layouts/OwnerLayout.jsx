@@ -10,6 +10,7 @@ import {
   Menu,
   Package,
   PawPrint,
+  Scissors,
   Settings,
   ShoppingBag,
   ShoppingCart,
@@ -49,6 +50,11 @@ const navigationItems = [
     icon: Stethoscope,
   },
   {
+    title: "Groomer",
+    path: "/owner/groomers",
+    icon: Scissors,
+  },
+  {
     title: "Health Records",
     path: "/owner/health-records",
     icon: HeartPulse,
@@ -59,7 +65,7 @@ const navigationItems = [
     icon: Syringe,
   },
   {
-    title: "Grooming",
+    title: "Grooming Service",
     path: "/owner/grooming",
     icon: ShoppingBag,
   },
@@ -84,6 +90,11 @@ const navigationItems = [
     title: "Orders",
     path: "/owner/orders",
     icon: ShoppingBag,
+  },
+  {
+    title: "Notifications",
+    path: "/owner/notifications",
+    icon: Bell,
   },
 ];
 
@@ -368,7 +379,9 @@ const OwnerLayout = () => {
             {/* Notification */}
             <button
               type="button"
+              onClick={() => navigate("/owner/notifications")}
               className="relative rounded-xl border border-white/10 p-2.5 text-slate-400 transition hover:bg-white/5 hover:text-white"
+              title="Notifications"
             >
               <Bell size={20} />
 

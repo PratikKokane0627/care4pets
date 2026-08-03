@@ -97,13 +97,32 @@ const MyAppointments = () => {
             />
           </div>
         )}
-        renderActions={(appointment, { refresh }) =>
-          ["pending", "accepted"].includes(String(appointment.status).toLowerCase()) ? (
+        renderActions={(appointment, { refresh }) => {
+          const normalizedStatus = String(appointment.status).toLowerCase();
+          const vetId = getId(appointment.vetId);
+          const appointmentId = getId(appointment);
+
+          if (["pending", "accepted"].includes(normalizedStatus)) {
+            return (
             <Button variant="danger" onClick={() => openCancelDialog(appointment, refresh)}>
               Cancel
             </Button>
-          ) : null
-        }
+            );
+          }
+
+          if (normalizedStatus === "completed" && vetId && appointmentId) {
+            return (
+              <Button
+                as={Link}
+                to={`/owner/veterinarians/${vetId}?appointmentId=${appointmentId}#vet-reviews`}
+              >
+                Review Vet
+              </Button>
+            );
+          }
+
+          return null;
+        }}
       />
       <ConfirmDialog
         open={Boolean(cancelTarget)}

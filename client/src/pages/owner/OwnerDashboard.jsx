@@ -8,6 +8,7 @@ import {
   Plus,
   ShieldCheck,
   ShoppingBag,
+  Scissors,
   Syringe,
   UserRound,
 } from "lucide-react";
@@ -208,6 +209,48 @@ const OwnerDashboard = () => {
     ...overdueVaccinationReminders,
     ...dueVaccinations,
   ];
+  const petHealthSummary = useMemo(() => {
+    const overdueCount = overdueVaccinationReminders.length;
+    const pendingVaccinationCount = pets.filter((pet) =>
+      ["pending", "overdue"].includes(String(pet.vaccinationStatus).toLowerCase())
+    ).length;
+    const activeCareCount = [
+      ...appointments,
+      ...groomingBookings,
+    ].filter((item) =>
+      ["pending", "accepted", "confirmed"].includes(String(item.status).toLowerCase())
+    ).length;
+
+    if (!pets.length) {
+      return {
+        value: "No Pets",
+        description: "Add a pet to track health",
+        iconClass: "bg-slate-500/15 text-slate-300",
+      };
+    }
+
+    if (overdueCount) {
+      return {
+        value: "Needs Care",
+        description: `${overdueCount} overdue vaccination${overdueCount > 1 ? "s" : ""}`,
+        iconClass: "bg-red-500/15 text-red-400",
+      };
+    }
+
+    if (pendingVaccinationCount || activeCareCount) {
+      return {
+        value: "Attention",
+        description: `${pendingVaccinationCount + activeCareCount} care item${pendingVaccinationCount + activeCareCount > 1 ? "s" : ""} pending`,
+        iconClass: "bg-amber-500/15 text-amber-400",
+      };
+    }
+
+    return {
+      value: "Good",
+      description: "All pets are doing well",
+      iconClass: "bg-emerald-500/15 text-emerald-400",
+    };
+  }, [appointments, groomingBookings, overdueVaccinationReminders, pets]);
 
   const activityStats = useMemo(() => {
     const currentStart = startOfWeek(new Date());
@@ -263,11 +306,16 @@ const OwnerDashboard = () => {
       <section className="mb-8">
         <p className="text-sm font-semibold text-cyan-400">Owner Dashboard</p>
 
-        <h1 className="mt-1 text-3xl font-bold text-white sm:text-4xl">
-          Welcome back, {ownerName}👋
-        </h1>
+        <div className="mt-2 flex items-center gap-3">
+          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-cyan-400/10 text-cyan-300 ring-1 ring-cyan-300/20">
+            <PawPrint size={25} />
+          </span>
+          <h1 className="text-3xl font-bold text-white sm:text-4xl">
+            Welcome back, {ownerName}
+          </h1>
+        </div>
 
-        <p className="mt-2 text-slate-400">
+        <p className="mt-3 text-slate-400">
           Here is today&apos;s overview of your pets and their care.
         </p>
       </section>
@@ -306,10 +354,10 @@ const OwnerDashboard = () => {
 
         <StatCard
           title="Health Status"
-          value="Good"
-          description="All pets are doing well"
+          value={petHealthSummary.value}
+          description={petHealthSummary.description}
           icon={HeartPulse}
-          iconClass="bg-emerald-500/15 text-emerald-400"
+          iconClass={petHealthSummary.iconClass}
         />
       </section>
 
@@ -595,6 +643,14 @@ const OwnerDashboard = () => {
           />
 
           <QuickAction
+            title="Grooming Service"
+            description="Book grooming care"
+            icon={Scissors}
+            iconClass="bg-cyan-500/15 text-cyan-400"
+            onClick={() => navigate("/owner/grooming")}
+          />
+
+          <QuickAction
             title="Pet Shop"
             description="Purchase pet supplies"
             icon={ShoppingBag}
@@ -608,3 +664,4 @@ const OwnerDashboard = () => {
 };
 
 export default OwnerDashboard;
+

@@ -26,6 +26,7 @@ import {
 import {
   NavLink,
   Outlet,
+  useLocation,
   useNavigate,
 } from "react-router-dom";
 import toast from "react-hot-toast";
@@ -132,9 +133,11 @@ const navigationItems = [
 
 const AdminLayout = () => {
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [dashboardSearch, setDashboardSearch] = useState("");
 
   const storedUser = JSON.parse(
     localStorage.getItem("user") || "{}"
@@ -163,6 +166,37 @@ const AdminLayout = () => {
       toast.success("Logged out successfully");
       navigate("/login", { replace: true });
     }
+  };
+
+  const handleDashboardSearch = (event) => {
+    event.preventDefault();
+    const query = dashboardSearch.trim();
+    if (!query) return;
+
+    const matchingSection = navigationItems.find((item) =>
+      item.label.toLowerCase().includes(query.toLowerCase())
+    );
+
+    if (matchingSection) {
+      navigate(matchingSection.path);
+      setDashboardSearch("");
+      return;
+    }
+
+    const searchablePaths = [
+      "/admin/users",
+      "/admin/veterinarians",
+      "/admin/groomers",
+      "/admin/products",
+      "/admin/reviews",
+      "/admin/pets",
+    ];
+
+    const targetPath = searchablePaths.includes(location.pathname)
+      ? location.pathname
+      : "/admin/users";
+
+    navigate(`${targetPath}?search=${encodeURIComponent(query)}`);
   };
 
   return (
@@ -263,15 +297,20 @@ const AdminLayout = () => {
             <Menu size={22} />
           </button>
 
-          <div className="hidden max-w-xl flex-1 items-center rounded-xl border border-white/10 bg-slate-900 px-4 md:flex">
+          <form
+            onSubmit={handleDashboardSearch}
+            className="hidden max-w-xl flex-1 items-center rounded-xl border border-white/10 bg-slate-900 px-4 md:flex"
+          >
             <Search size={18} className="text-slate-500" />
 
             <input
               type="search"
+              value={dashboardSearch}
+              onChange={(event) => setDashboardSearch(event.target.value)}
               placeholder="Search dashboard..."
               className="w-full bg-transparent px-3 py-3 text-sm text-white outline-none placeholder:text-slate-600"
             />
-          </div>
+          </form>
 
           <div className="ml-auto flex items-center gap-2 sm:gap-3">
             <button
@@ -280,7 +319,7 @@ const AdminLayout = () => {
             >
               <Bell size={20} />
 
-              <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-cyan-400" />
+              <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-red-500" />
             </button>
 
             <div className="relative">

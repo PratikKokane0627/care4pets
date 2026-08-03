@@ -1,4 +1,4 @@
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import { Bell, Check, ChevronDown, Edit3, Eye, Lock, Plus, RefreshCw, Trash2 } from "lucide-react";
@@ -39,6 +39,10 @@ const groomingStatuses = ["pending", "accepted", "rejected", "cancelled", "compl
 const groomingServiceCategories = ["Bath", "Haircut", "Spa", "Nail Trimming", "Dental Cleaning", "Full Grooming"];
 const appointmentStatuses = ["pending", "accepted", "rejected", "cancelled", "completed"];
 const userStatuses = ["pending", "active", "inactive", "blocked", "rejected"];
+const userStatusFilters = ["pending", "approved", "active", "inactive", "blocked", "rejected"];
+
+const displayUserStatus = (user) =>
+  user.role === "vet" ? user.vetApprovalStatus || user.status : user.status;
 
 const useSingle = (endpoint, key) => {
   const [data, setData] = useState(null);
@@ -71,9 +75,16 @@ const useSingle = (endpoint, key) => {
 };
 
 export const Users = () => {
-  const [search, setSearch] = useState("");
+  const [searchParams] = useSearchParams();
+  const routeSearch = searchParams.get("search") || "";
+  const [search, setSearch] = useState(routeSearch);
   const [role, setRole] = useState("");
   const [status, setStatus] = useState("");
+
+  useEffect(() => {
+    setSearch(routeSearch);
+  }, [routeSearch]);
+
   const endpoint = useMemo(() => {
     const p = new URLSearchParams();
     if (search) p.set("search", search);
@@ -112,7 +123,7 @@ export const Users = () => {
         <FilterPanel>
           <SearchBar value={search} onChange={(v) => { setSearch(v); setPage(1); }} placeholder="Search name, email or phone" />
           <Field as="select" label="Role" value={role} onChange={(v) => { setRole(v); setPage(1); }} options={[{ value: "", label: "All roles" }, "owner", "vet", "groomer", "admin".split()].flat().map((value) => typeof value === "string" ? { value, label: value || "All roles" } : value)} />
-          <Field as="select" label="Status" value={status} onChange={(v) => { setStatus(v); setPage(1); }} options={[{ value: "", label: "All statuses" }, ...userStatuses.map((value) => ({ value, label: value }))]} />
+          <Field as="select" label="Status" value={status} onChange={(v) => { setStatus(v); setPage(1); }} options={[{ value: "", label: "All statuses" }, ...userStatusFilters.map((value) => ({ value, label: value }))]} />
           <div className="flex items-end"><Button variant="ghost" onClick={() => { setSearch(""); setRole(""); setStatus(""); setPage(1); }}>Reset</Button></div>
         </FilterPanel>
       )}
@@ -120,9 +131,21 @@ export const Users = () => {
         { header: "User", render: (user) => <><p className="font-semibold text-white">{userName(user)}</p><p className="mt-1 text-xs text-slate-500">{user.email}</p></> },
         { header: "Phone", render: (user) => user.phone || "Not set" },
         { header: "Role", render: (user) => <span className="capitalize">{user.role}</span> },
-        { header: "Status", render: (user) => <StatusBadge status={user.status || "active"} /> },
+        {
+          header: "Status",
+          render: (user) => (
+            <div>
+              <StatusBadge status={displayUserStatus(user) || "active"} />
+              {user.role === "vet" && user.accountStatus && user.accountStatus !== user.vetApprovalStatus && (
+                <p className="mt-1 text-xs text-slate-500">
+                  Account: <span className="capitalize">{user.accountStatus}</span>
+                </p>
+              )}
+            </div>
+          ),
+        },
         { header: "Joined", render: (user) => formatDate(user.createdAt) },
-        { header: "Actions", render: (user) => <div className="flex flex-wrap gap-2"><Button as={Link} to={`/admin/users/${getId(user)}`} variant="ghost"><Eye size={15} /> View</Button><UserStatusSelect value={user.status || "active"} onChange={(nextStatus) => updateStatus(user, nextStatus, refresh)} /><ConfirmActionButton title="Delete User" message={`Delete ${userName(user)} and related account data?`} confirmText="Delete" onConfirm={() => remove(user, refresh)}><Trash2 size={15} /></ConfirmActionButton></div> },
+        { header: "Actions", render: (user) => <div className="flex flex-wrap gap-2"><Button as={Link} to={`/admin/users/${getId(user)}`} variant="ghost"><Eye size={15} /> View</Button>{user.role === "vet" && user.vetProfileId ? <Button as={Link} to={`/admin/veterinarians/${user.vetProfileId}`} variant="ghost">Vet Approval</Button> : <UserStatusSelect value={user.status || "active"} onChange={(nextStatus) => updateStatus(user, nextStatus, refresh)} />}<ConfirmActionButton title="Delete User" message={`Delete ${userName(user)} and related account data?`} confirmText="Delete" onConfirm={() => remove(user, refresh)}><Trash2 size={15} /></ConfirmActionButton></div> },
       ]}
       emptyTitle="No users found"
       emptyDescription="User accounts will appear here."
@@ -157,13 +180,14 @@ export const UserDetails = () => {
   };
   return (
     <main>
-      <AdminPageHeader title={userName(user)} description="Profile, role, account status and admin actions." actions={<><UserStatusSelect value={user.status || "active"} onChange={updateStatus} /><ConfirmActionButton title="Delete User" message={`Delete ${userName(user)} and related account data?`} confirmText="Delete" onConfirm={remove}>Delete</ConfirmActionButton></>} />
+      <AdminPageHeader title={userName(user)} description="Profile, role, account status and admin actions." actions={<>{user.role === "vet" && data.vetProfile ? <Button as={Link} to={`/admin/veterinarians/${getId(data.vetProfile)}`} variant="ghost">Vet Approval</Button> : <UserStatusSelect value={user.status || "active"} onChange={updateStatus} />}<ConfirmActionButton title="Delete User" message={`Delete ${userName(user)} and related account data?`} confirmText="Delete" onConfirm={remove}>Delete</ConfirmActionButton></>} />
       <ErrorState message={error} />
       <Panel className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <InfoBlock label="Email" value={user.email} />
         <InfoBlock label="Phone" value={user.phone} />
         <InfoBlock label="Role" value={user.role} />
-        <InfoBlock label="Status" value={<StatusBadge status={user.status} />} />
+        <InfoBlock label={user.role === "vet" ? "Approval Status" : "Status"} value={<StatusBadge status={data.vetProfile?.status || user.status} />} />
+        {user.role === "vet" && <InfoBlock label="Account Status" value={<StatusBadge status={user.status} />} />}
         <InfoBlock label="Joined" value={formatDate(user.createdAt)} />
         <InfoBlock label="Address" value={[user.address?.street, user.address?.city, user.address?.state, user.address?.zipCode].filter(Boolean).join(", ")} />
       </Panel>
@@ -1408,26 +1432,72 @@ export const Vaccinations = () => {
 };
 
 export const Reviews = () => {
-  const [search, setSearch] = useState("");
-  const endpoint = search ? `/reviews/admin/all?search=${encodeURIComponent(search)}` : "/reviews/admin/all?";
+  const [searchParams] = useSearchParams();
+  const routeSearch = searchParams.get("search") || "";
+  const [search, setSearch] = useState(routeSearch);
+  const [reviewType, setReviewType] = useState("");
+
+  useEffect(() => {
+    setSearch(routeSearch);
+  }, [routeSearch]);
+
+  const endpoint = useMemo(() => {
+    const p = new URLSearchParams();
+    if (search) p.set("search", search);
+    if (reviewType) p.set("reviewType", reviewType);
+    const query = p.toString();
+    return query ? `/reviews/admin/all?${query}` : "/reviews/admin/all?";
+  }, [reviewType, search]);
+
   const remove = async (review, refresh) => {
     await api.delete(`/reviews/admin/${getId(review)}`);
     toast.success("Review deleted");
     refresh();
   };
+
+  const reviewTarget = (review) => {
+    if (review.reviewType === "vet") {
+      return (
+        <>
+          <p className="font-semibold text-white">{userName(review.vetId?.userId)}</p>
+          <p className="mt-1 text-xs text-slate-500">{review.vetId?.clinicName || "Veterinarian"}</p>
+        </>
+      );
+    }
+
+    return (
+      <>
+        <p className="font-semibold text-white">{review.productId?.productName || "Product"}</p>
+        <p className="mt-1 text-xs text-slate-500">Product review</p>
+      </>
+    );
+  };
+
   return (
     <ResourceShell
       title="Reviews"
-      description="View and remove inappropriate product reviews."
+      description="View and remove inappropriate product and veterinarian reviews."
       endpoint={endpoint}
       keys={["reviews"]}
       filters={({ setPage }) => (
         <FilterPanel>
           <SearchBar value={search} onChange={(v) => { setSearch(v); setPage(1); }} placeholder="Search reviews" />
+          <Field
+            as="select"
+            label="Type"
+            value={reviewType}
+            onChange={(v) => { setReviewType(v); setPage(1); }}
+            options={[
+              { value: "", label: "All reviews" },
+              { value: "product", label: "Product reviews" },
+              { value: "vet", label: "Vet reviews" },
+            ]}
+          />
         </FilterPanel>
       )}
       columns={({ refresh }) => [
-        { header: "Product", render: (r) => r.productId?.productName || "Product" },
+        { header: "Type", render: (r) => <StatusBadge status={r.reviewType || "product"} /> },
+        { header: "Target", render: reviewTarget },
         { header: "User", render: (r) => userName(r.userId) },
         { header: "Rating", render: (r) => `${r.rating || 0}/5` },
         { header: "Comment", render: (r) => <p className="max-w-md text-slate-400">{r.comment}</p> },

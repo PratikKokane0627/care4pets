@@ -19,6 +19,8 @@ import {
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 
+import { getMyVetProfile } from "../services/vetApi";
+
 const navigationItems = [
   { label: "Dashboard", path: "/vet/dashboard", icon: LayoutDashboard },
   { label: "Appointments", path: "/vet/appointments", icon: CalendarDays },
@@ -55,10 +57,30 @@ const VetLayout = () => {
   const [profileOpen, setProfileOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
-  const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
+  const [storedUser, setStoredUser] = useState(() => JSON.parse(localStorage.getItem("user") || "{}"));
+  const [vetProfileImage, setVetProfileImage] = useState("");
   const vetName = storedUser.name || storedUser.fullName || "Veterinarian";
   const vetEmail = storedUser.email || "vet@care4pets.com";
-  const profileImage = typeof storedUser.profileImage === "string" ? storedUser.profileImage : storedUser.profileImage?.url;
+  const userProfileImage = typeof storedUser.profileImage === "string" ? storedUser.profileImage : storedUser.profileImage?.url;
+  const profileImage = vetProfileImage || userProfileImage;
+
+  useEffect(() => {
+    const syncUser = () => {
+      const user = JSON.parse(localStorage.getItem("user") || "{}");
+      setStoredUser(user);
+      const image = typeof user.profileImage === "string" ? user.profileImage : user.profileImage?.url;
+      setVetProfileImage(image || "");
+    };
+    const loadProfile = () => {
+      syncUser();
+      getMyVetProfile()
+        .then((res) => setVetProfileImage(res.data.vet?.profileImage?.url || ""))
+        .catch(() => {});
+    };
+    loadProfile();
+    window.addEventListener("vet-profile-updated", syncUser);
+    return () => window.removeEventListener("vet-profile-updated", syncUser);
+  }, []);
 
   useEffect(() => {
     const close = (event) => {
@@ -204,11 +226,11 @@ const VetLayout = () => {
           <div className="ml-auto flex items-center gap-2 sm:gap-3">
             <button type="button" onClick={() => navigate("/vet/notifications")} className="relative rounded-xl border border-white/10 bg-slate-900 p-3 text-slate-400 transition hover:text-white" aria-label="Open notifications">
               <Bell size={20} />
-              <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-cyan-400" />
+              <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-red-500" />
             </button>
             <div className="relative" ref={dropdownRef}>
               <button type="button" onClick={() => setProfileOpen((value) => !value)} className="flex items-center gap-3 rounded-xl border border-white/10 bg-slate-900 px-3 py-2">
-                <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-lg bg-indigo-500/20 text-indigo-400">
+                <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-cyan-300/25 bg-indigo-500/20 text-indigo-400">
                   {profileImage ? <img src={profileImage} alt={vetName} className="h-full w-full object-cover" /> : <UserRound size={19} />}
                 </div>
                 <div className="hidden text-left sm:block">

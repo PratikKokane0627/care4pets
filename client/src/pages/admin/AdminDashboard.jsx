@@ -4,6 +4,7 @@ import {
   PawPrint,
   RefreshCw,
   Scissors,
+  ShieldCheck,
   ShoppingBag,
   Stethoscope,
   UserCheck,
@@ -221,11 +222,16 @@ const AdminDashboard = () => {
             Admin overview
           </p>
 
-          <h1 className="mt-1 text-3xl font-bold text-white">
-            Dashboard
-          </h1>
+          <div className="mt-2 flex items-center gap-3">
+            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-cyan-400/10 text-cyan-300 ring-1 ring-cyan-300/20">
+              <ShieldCheck size={25} />
+            </span>
+            <h1 className="text-3xl font-bold text-white">
+              Dashboard
+            </h1>
+          </div>
 
-          <p className="mt-2 text-sm text-slate-400">
+          <p className="mt-3 text-sm text-slate-400">
             Monitor users, services, appointments, and orders.
           </p>
         </div>

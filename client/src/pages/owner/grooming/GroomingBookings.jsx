@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { toast } from "react-hot-toast";
 import { useMemo, useState } from "react";
+import { Star } from "lucide-react";
 
 import EmptyState from "../../../components/owner/EmptyState";
 import PageHeader from "../../../components/owner/PageHeader";
@@ -19,6 +20,10 @@ const GroomingBookings = () => {
   const [cancelTarget, setCancelTarget] = useState(null);
   const [cancelReason, setCancelReason] = useState("Cancelled by owner");
   const [cancelBusy, setCancelBusy] = useState(false);
+  const [reviewTarget, setReviewTarget] = useState(null);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewComment, setReviewComment] = useState("");
+  const [reviewBusy, setReviewBusy] = useState(false);
 
   const endpoint = useMemo(() => {
     const params = new URLSearchParams();
@@ -103,6 +108,41 @@ const GroomingBookings = () => {
       toast.error(err.response?.data?.message || "Could not cancel booking");
     } finally {
       setCancelBusy(false);
+    }
+  };
+
+  const openReviewDialog = (booking) => {
+    setReviewTarget(booking);
+    setReviewRating(5);
+    setReviewComment("");
+  };
+
+  const closeReviewDialog = () => {
+    if (reviewBusy) return;
+    setReviewTarget(null);
+    setReviewRating(5);
+    setReviewComment("");
+  };
+
+  const submitReview = async () => {
+    if (!reviewTarget) return;
+
+    setReviewBusy(true);
+    try {
+      await api.post("/reviews/groomer", {
+        groomerId: getId(reviewTarget.groomerId),
+        groomingBookingId: getId(reviewTarget),
+        rating: Number(reviewRating),
+        comment: reviewComment,
+      });
+      toast.success("Groomer review added");
+      setReviewTarget(null);
+      setReviewRating(5);
+      setReviewComment("");
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Could not add review");
+    } finally {
+      setReviewBusy(false);
     }
   };
 
@@ -237,6 +277,11 @@ const GroomingBookings = () => {
                           Cancel
                         </Button>
                       )}
+                      {String(booking.status).toLowerCase() === "completed" && booking.groomerId && (
+                        <Button variant="ghost" onClick={() => openReviewDialog(booking)}>
+                          <Star size={16} /> Review
+                        </Button>
+                      )}
                     </div>
                   </article>
                 ))}
@@ -258,6 +303,45 @@ const GroomingBookings = () => {
         onConfirm={cancel}
         onClose={closeCancelDialog}
       />
+      {reviewTarget && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl border border-cyan-300/20 bg-slate-900 p-6 shadow-2xl shadow-cyan-950/30">
+            <h2 className="text-xl font-bold text-white">Review groomer</h2>
+            <p className="mt-3 text-sm leading-6 text-slate-400">
+              Share feedback for {reviewTarget.groomerId?.name || "this groomer"}.
+            </p>
+            <label className="mt-5 block">
+              <span className="mb-2 block text-sm font-medium text-slate-300">Rating</span>
+              <select
+                value={reviewRating}
+                onChange={(event) => setReviewRating(event.target.value)}
+                className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white outline-none transition hover:border-white/25 focus:border-cyan-400"
+              >
+                {[5, 4, 3, 2, 1].map((rating) => (
+                  <option key={rating} value={rating}>{rating} stars</option>
+                ))}
+              </select>
+            </label>
+            <label className="mt-5 block">
+              <span className="mb-2 block text-sm font-medium text-slate-300">Comment</span>
+              <textarea
+                value={reviewComment}
+                onChange={(event) => setReviewComment(event.target.value)}
+                placeholder="How was the grooming service?"
+                className="min-h-28 w-full resize-y rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white outline-none transition placeholder:text-slate-600 hover:border-white/25 focus:border-cyan-400"
+              />
+            </label>
+            <div className="mt-6 flex flex-wrap justify-end gap-3">
+              <Button variant="ghost" onClick={closeReviewDialog} disabled={reviewBusy}>
+                Cancel
+              </Button>
+              <Button onClick={submitReview} disabled={reviewBusy}>
+                {reviewBusy ? "Saving..." : "Submit Review"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 };

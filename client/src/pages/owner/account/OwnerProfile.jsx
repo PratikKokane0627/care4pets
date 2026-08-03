@@ -53,7 +53,7 @@ const OwnerProfile = () => {
         street: nextUser.address?.street || "",
         city: nextUser.address?.city || "",
         state: nextUser.address?.state || "",
-        zipCode: nextUser.address?.zipCode || "",
+        zipCode: nextUser.address?.zipCode || nextUser.address?.postalCode || "",
       },
     });
     syncStoredUser(nextUser);
@@ -73,9 +73,22 @@ const OwnerProfile = () => {
     event.preventDefault();
     setSaving(true);
     try {
-      const response = await api.put("/auth/profile", form);
+      const response = await api.put("/auth/profile", {
+        ...form,
+        address: {
+          ...form.address,
+          postalCode: form.address.zipCode,
+        },
+      });
       const nextUser = response.data.user || response.data;
       setUser(nextUser);
+      setForm((current) => ({
+        ...current,
+        address: {
+          ...current.address,
+          zipCode: nextUser.address?.zipCode || nextUser.address?.postalCode || current.address.zipCode,
+        },
+      }));
       syncStoredUser(nextUser);
       toast.success("Profile updated");
     } catch (err) {

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowRight, CalendarClock, CalendarDays, ClipboardList, IndianRupee, PawPrint, RefreshCw, ShieldCheck, Star, Stethoscope, UserCheck, UserRoundCog } from "lucide-react";
+import { ArrowRight, CalendarClock, CalendarDays, ChevronRight, ClipboardList, IndianRupee, PawPrint, RefreshCw, ShieldCheck, Star, Stethoscope, UserCheck, UserRoundCog } from "lucide-react";
 import { Link } from "react-router-dom";
 import toast from "react-hot-toast";
 
@@ -153,6 +153,7 @@ const VetDashboard = () => {
   return (
     <div>
       <VetPageHeader
+        icon={Stethoscope}
         title={`Welcome back, Dr. ${vetName}`}
         description="Live overview of your appointments, patients, prescriptions, and practice profile."
         actions={
@@ -193,7 +194,7 @@ const VetDashboard = () => {
       </section>
 
       <section className="mt-7 grid gap-6 xl:grid-cols-[1.35fr_1fr]">
-        <Panel title="Today's Schedule" description="Appointments scheduled for today" action={<Link to="/vet/appointments" className="text-sm font-semibold text-cyan-400">View all</Link>}>
+        <Panel title="Today's Schedule" description="Appointments scheduled for today" action={<Link to="/vet/appointments" style={{ color: "#22d3ee" }} className="inline-flex items-center gap-1 text-sm font-semibold transition hover:opacity-80">View all <ChevronRight size={17} /></Link>}>
           {data.todaySchedule.length ? <div className="grid gap-4 md:grid-cols-2">{data.todaySchedule.map((appointment) => <AppointmentCard key={getId(appointment)} appointment={appointment} />)}</div> : <VetEmptyState title="No appointments today" description="Today's accepted or pending visits will appear here." />}
         </Panel>
         <Panel title="Weekly Appointment Summary" description="Real appointments this week">
@@ -277,3 +278,4 @@ const VetDashboard = () => {
 };
 
 export default VetDashboard;
+

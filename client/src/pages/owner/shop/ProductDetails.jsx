@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { toast } from "react-hot-toast";
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 
 import EmptyState from "../../../components/owner/EmptyState";
 import Loader from "../../../components/owner/Loader";
@@ -25,6 +25,8 @@ import {
 
 const ProductDetails = () => {
   const { id } = useParams();
+  const [searchParams] = useSearchParams();
+  const requestedOrderId = searchParams.get("orderId") || "";
   const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
   const [product, setProduct] = useState(null);
   const [reviews, setReviews] = useState([]);
@@ -45,15 +47,33 @@ const ProductDetails = () => {
       api.get(`/reviews/product/${id}`).catch(() => ({ data: [] })),
       api.get("/orders/my-orders").catch(() => ({ data: [] })),
     ]);
+    const nextOrders = toArray(ordersRes.data, ["orders"]);
     setProduct(productRes.data.product || productRes.data);
     setReviews(toArray(reviewsRes.data, ["reviews"]));
-    setOrders(toArray(ordersRes.data, ["orders"]));
+    setOrders(nextOrders);
+
+    if (
+      requestedOrderId &&
+      nextOrders.some((order) => getId(order) === requestedOrderId)
+    ) {
+      setReviewForm((current) => ({
+        ...current,
+        orderId: requestedOrderId,
+      }));
+    }
   };
 
-  const { loading, error } = useFetch(load, id);
+  const { loading, error } = useFetch(load, `${id}-${requestedOrderId}`);
+
+  const getOrderItemProductId = (item) =>
+    getId(item.productId) || item.productId || item._id || "";
 
   const productOrders = orders.filter((order) =>
-    order.items?.some((item) => getId(item.productId) === id || item.productId === id)
+    order.items?.some((item) => getOrderItemProductId(item) === id)
+  );
+
+  const deliveredProductOrders = productOrders.filter(
+    (order) => order.orderStatus === "Delivered"
   );
 
   const ownerReview = reviews.find(
@@ -161,9 +181,9 @@ const ProductDetails = () => {
             </div>
           </Panel>
 
-          <Panel>
+          <Panel id="product-reviews">
             <h2 className="mb-5 text-xl font-bold text-white">Product Reviews</h2>
-            {productOrders.length > 0 && (!ownerReview || editingReviewId) && (
+            {deliveredProductOrders.length > 0 && (!ownerReview || editingReviewId) && (
               <form onSubmit={saveReview} className="mb-6 grid gap-4 rounded-xl border border-white/10 bg-slate-950/60 p-4 md:grid-cols-[1fr_160px]">
                 {!editingReviewId && (
                   <Field
@@ -173,12 +193,10 @@ const ProductDetails = () => {
                     onChange={(value) => setReviewForm({ ...reviewForm, orderId: value })}
                     options={[
                       { value: "", label: "Select delivered order" },
-                      ...productOrders
-                        .filter((order) => order.orderStatus === "Delivered")
-                        .map((order) => ({
-                          value: getId(order),
-                          label: `Order #${String(getId(order)).slice(-6)} - ${formatDate(order.createdAt)}`,
-                        })),
+                      ...deliveredProductOrders.map((order) => ({
+                        value: getId(order),
+                        label: `Order #${String(getId(order)).slice(-6)} - ${formatDate(order.createdAt)}`,
+                      })),
                     ]}
                     required
                   />
@@ -202,7 +220,7 @@ const ProductDetails = () => {
                 </div>
                 <div className="flex gap-3 md:col-span-2">
                   <Button type="submit" disabled={saving}>
-                    {editingReviewId ? "Update Review" : "Add Review"}
+                    {saving ? "Saving..." : editingReviewId ? "Update Review" : "Add Review"}
                   </Button>
                   {editingReviewId && (
                     <Button
@@ -217,6 +235,12 @@ const ProductDetails = () => {
                   )}
                 </div>
               </form>
+            )}
+
+            {deliveredProductOrders.length === 0 && !ownerReview && (
+              <div className="mb-6 rounded-xl border border-cyan-300/15 bg-cyan-400/10 p-4 text-sm text-cyan-100">
+                You can review this product after it is delivered in one of your orders.
+              </div>
             )}
 
             {reviews.length === 0 ? (

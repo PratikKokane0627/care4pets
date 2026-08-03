@@ -21,6 +21,7 @@ import AddPet from "../pages/owner/pets/AddPet";
 import PetDetails from "../pages/owner/pets/PetDetails";
 import Veterinarians from "../pages/owner/veterinarians/Veterinarians";
 import VetDetails from "../pages/owner/veterinarians/VetDetails";
+import Groomers from "../pages/owner/groomers/Groomers";
 import MyAppointments from "../pages/owner/appointments/MyAppointments";
 import BookAppointment from "../pages/owner/appointments/BookAppointment";
 import AppointmentDetails from "../pages/owner/appointments/AppointmentDetails";
@@ -42,6 +43,7 @@ import OwnerProfile from "../pages/owner/account/OwnerProfile";
 import EditProfile from "../pages/owner/account/EditProfile";
 import ChangePassword from "../pages/owner/account/ChangePassword";
 import Settings from "../pages/owner/account/Settings";
+import OwnerNotifications from "../pages/owner/notifications/OwnerNotifications";
 
 import AdminLayout from "../layouts/AdminLayout";
 import AdminDashboard from "../pages/admin/AdminDashboard";
@@ -58,6 +60,23 @@ import VetNotifications from "../pages/vet/notifications/VetNotifications";
 import VetProfilePage from "../pages/vet/profile/VetProfile";
 import EditVetProfile from "../pages/vet/profile/EditVetProfile";
 import VetChangePassword from "../pages/vet/profile/VetChangePassword";
+import GroomerLayout from "../layouts/GroomerLayout";
+import GroomerDashboard from "../pages/groomer/GroomerDashboard";
+import GroomerBookings from "../pages/groomer/bookings/GroomerBookings";
+import GroomerBookingDetails from "../pages/groomer/bookings/GroomerBookingDetails";
+import GroomerCustomers from "../pages/groomer/customers/GroomerCustomers";
+import GroomerCustomerDetails from "../pages/groomer/customers/GroomerCustomerDetails";
+import GroomerPets from "../pages/groomer/pets/GroomerPets";
+import GroomerPetDetails from "../pages/groomer/pets/GroomerPetDetails";
+import GroomerSchedule from "../pages/groomer/schedule/GroomerSchedule";
+import GroomerAvailability from "../pages/groomer/availability/GroomerAvailability";
+import GroomerServices from "../pages/groomer/services/GroomerServices";
+import GroomerEarnings from "../pages/groomer/earnings/GroomerEarnings";
+import GroomerReviews from "../pages/groomer/reviews/GroomerReviews";
+import GroomerNotifications from "../pages/groomer/notifications/GroomerNotifications";
+import GroomerProfile from "../pages/groomer/profile/GroomerProfile";
+import EditGroomerProfile from "../pages/groomer/profile/EditGroomerProfile";
+import GroomerChangePassword from "../pages/groomer/profile/GroomerChangePassword";
 
 import Users from "../pages/admin/users/Users";
 import UserDetails from "../pages/admin/users/UserDetails";
@@ -133,6 +152,7 @@ const AppRoutes = () => {
           <Route path="pets/:id" element={<PetDetails />} />
           <Route path="veterinarians" element={<Veterinarians />} />
           <Route path="veterinarians/:id" element={<VetDetails />} />
+          <Route path="groomers" element={<Groomers />} />
           <Route path="appointments" element={<MyAppointments />} />
           <Route path="appointments/book" element={<BookAppointment />} />
           <Route path="appointments/:id" element={<AppointmentDetails />} />
@@ -150,6 +170,7 @@ const AppRoutes = () => {
           <Route path="checkout" element={<Checkout />} />
           <Route path="orders" element={<Orders />} />
           <Route path="orders/:id" element={<OrderDetails />} />
+          <Route path="notifications" element={<OwnerNotifications />} />
           <Route path="profile" element={<OwnerProfile />} />
           <Route path="profile/edit" element={<EditProfile />} />
           <Route path="change-password" element={<ChangePassword />} />
@@ -173,6 +194,29 @@ const AppRoutes = () => {
           <Route path="profile" element={<VetProfilePage />} />
           <Route path="profile/edit" element={<EditVetProfile />} />
           <Route path="change-password" element={<VetChangePassword />} />
+        </Route>
+      </Route>
+
+      {/* Protected groomer routes */}
+      <Route element={<ProtectedRoute allowedRole="groomer" />}>
+        <Route path="/groomer" element={<GroomerLayout />}>
+          <Route index element={<Navigate to="/groomer/dashboard" replace />} />
+          <Route path="dashboard" element={<GroomerDashboard />} />
+          <Route path="bookings" element={<GroomerBookings />} />
+          <Route path="bookings/:id" element={<GroomerBookingDetails />} />
+          <Route path="schedule" element={<GroomerSchedule />} />
+          <Route path="customers" element={<GroomerCustomers />} />
+          <Route path="customers/:id" element={<GroomerCustomerDetails />} />
+          <Route path="pets" element={<GroomerPets />} />
+          <Route path="pets/:id" element={<GroomerPetDetails />} />
+          <Route path="services" element={<GroomerServices />} />
+          <Route path="availability" element={<GroomerAvailability />} />
+          <Route path="earnings" element={<GroomerEarnings />} />
+          <Route path="reviews" element={<GroomerReviews />} />
+          <Route path="notifications" element={<GroomerNotifications />} />
+          <Route path="profile" element={<GroomerProfile />} />
+          <Route path="profile/edit" element={<EditGroomerProfile />} />
+          <Route path="change-password" element={<GroomerChangePassword />} />
         </Route>
       </Route>
 

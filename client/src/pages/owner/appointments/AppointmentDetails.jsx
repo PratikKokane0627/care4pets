@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 
 import EmptyState from "../../../components/owner/EmptyState";
 import Loader from "../../../components/owner/Loader";
@@ -7,7 +7,7 @@ import PageHeader from "../../../components/owner/PageHeader";
 import StatusBadge from "../../../components/owner/StatusBadge";
 import useFetch from "../../../hooks/useFetch";
 import api from "../../../services/api";
-import { ErrorState, InfoBlock, Panel, formatDate, petName, vetName } from "../ownerShared";
+import { Button, ErrorState, InfoBlock, Panel, formatDate, getId, petName, vetName } from "../ownerShared";
 
 const AppointmentDetails = () => {
   const { id } = useParams();
@@ -40,6 +40,15 @@ const AppointmentDetails = () => {
             <InfoBlock label="Diagnosis" value={appointment.diagnosis} />
             <InfoBlock label="Prescription" value={appointment.prescription} />
           </div>
+          {String(appointment.status).toLowerCase() === "completed" && getId(appointment.vetId) && (
+            <Button
+              as={Link}
+              to={`/owner/veterinarians/${getId(appointment.vetId)}?appointmentId=${getId(appointment)}#vet-reviews`}
+              className="mt-5"
+            >
+              Review Vet
+            </Button>
+          )}
         </Panel>
       )}
     </main>

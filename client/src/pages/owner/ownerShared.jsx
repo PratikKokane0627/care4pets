@@ -71,6 +71,7 @@ export const initialAppointmentForm = {
 export const initialGroomingForm = {
   petId: "",
   serviceId: "",
+  groomerId: "",
   bookingDate: "",
   bookingTime: "",
   notes: "",
@@ -92,9 +93,10 @@ export const initialAddress = {
   zipCode: "",
 };
 
-export const Panel = ({ children, className = "" }) => (
+export const Panel = ({ children, className = "", ...props }) => (
   <section
     className={`rounded-2xl border border-white/10 bg-slate-900 p-5 shadow-lg shadow-black/10 transition duration-300 hover:border-cyan-300/25 hover:shadow-cyan-950/15 ${className}`}
+    {...props}
   >
     {children}
   </section>
