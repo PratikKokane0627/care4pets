@@ -13,6 +13,7 @@ import Login from "../pages/auth/Login";
 // import VerifyEmail from "../pages/auth/VerifyEmail";
 
 import NotFound from "../pages/errors/NotFound";
+import Forbidden from "../pages/errors/Forbidden";
 import Register from "../pages/auth/Register";
 import ProtectedRoute from "./ProtectedRoute";
 import OwnerDashboard from "../pages/owner/OwnerDashboard";
@@ -141,6 +142,7 @@ const AppRoutes = () => {
       <Route path="/register" element={<Register />} />
       <Route path="/login" element={<Login />} />
       <Route path="/apply-vet" element={<ApplyVet />} />
+      <Route path="/403" element={<Forbidden />} />
 
       {/* Protected owner routes */}
       <Route element={<ProtectedRoute allowedRole="owner" />}>
