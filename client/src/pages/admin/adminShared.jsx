@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useState } from "react";
 import toast from "react-hot-toast";
 
+import DateInput from "../../components/common/DateInput";
 import api from "../../services/api";
 
 export const getId = (item) => item?._id || item?.id;
@@ -112,6 +113,13 @@ export const Field = ({
         value={value}
         onChange={(event) => onChange(event.target.value)}
         className={`min-h-28 w-full resize-y rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white outline-none transition hover:border-white/25 focus:border-cyan-400 ${inputClassName}`}
+        {...props}
+      />
+    ) : type === "date" ? (
+      <DateInput
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className={`w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white outline-none transition hover:border-white/25 focus:border-cyan-400 ${inputClassName}`}
         {...props}
       />
     ) : (

@@ -3,6 +3,7 @@ import { toast } from "react-hot-toast";
 import { useMemo, useState } from "react";
 
 import ResourceListPage from "../../../components/owner/ResourceListPage";
+import DateInput from "../../../components/common/DateInput";
 import api from "../../../services/api";
 import { Button, ConfirmDialog, formatDate, getId, petName, vetName } from "../ownerShared";
 
@@ -89,8 +90,7 @@ const MyAppointments = () => {
                 <option key={item} value={item}>{item}</option>
               ))}
             </select>
-            <input
-              type="date"
+            <DateInput
               value={date}
               onChange={(event) => setDate(event.target.value)}
               className="rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white outline-none transition hover:border-white/25 focus:border-cyan-400"

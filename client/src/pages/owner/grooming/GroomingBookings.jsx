@@ -3,6 +3,7 @@ import { toast } from "react-hot-toast";
 import { useMemo, useState } from "react";
 import { Star } from "lucide-react";
 
+import DateInput from "../../../components/common/DateInput";
 import EmptyState from "../../../components/owner/EmptyState";
 import PageHeader from "../../../components/owner/PageHeader";
 import StatusBadge from "../../../components/owner/StatusBadge";
@@ -21,7 +22,8 @@ const GroomingBookings = () => {
   const [cancelReason, setCancelReason] = useState("Cancelled by owner");
   const [cancelBusy, setCancelBusy] = useState(false);
   const [reviewTarget, setReviewTarget] = useState(null);
-  const [reviewRating, setReviewRating] = useState(5);
+  const [serviceRating, setServiceRating] = useState(5);
+  const [groomerRating, setGroomerRating] = useState(5);
   const [reviewComment, setReviewComment] = useState("");
   const [reviewBusy, setReviewBusy] = useState(false);
 
@@ -113,14 +115,16 @@ const GroomingBookings = () => {
 
   const openReviewDialog = (booking) => {
     setReviewTarget(booking);
-    setReviewRating(5);
+    setServiceRating(5);
+    setGroomerRating(5);
     setReviewComment("");
   };
 
   const closeReviewDialog = () => {
     if (reviewBusy) return;
     setReviewTarget(null);
-    setReviewRating(5);
+    setServiceRating(5);
+    setGroomerRating(5);
     setReviewComment("");
   };
 
@@ -132,13 +136,17 @@ const GroomingBookings = () => {
       await api.post("/reviews/groomer", {
         groomerId: getId(reviewTarget.groomerId),
         groomingBookingId: getId(reviewTarget),
-        rating: Number(reviewRating),
+        serviceRating: Number(serviceRating),
+        groomerRating: Number(groomerRating),
+        rating: Math.round((Number(serviceRating) + Number(groomerRating)) / 2),
         comment: reviewComment,
       });
-      toast.success("Groomer review added");
+      toast.success("Grooming service review added");
       setReviewTarget(null);
-      setReviewRating(5);
+      setServiceRating(5);
+      setGroomerRating(5);
       setReviewComment("");
+      await refreshBookings();
     } catch (err) {
       toast.error(err.response?.data?.message || "Could not add review");
     } finally {
@@ -217,8 +225,7 @@ const GroomingBookings = () => {
                     <option key={item} value={item}>{item}</option>
                   ))}
                 </select>
-                <input
-                  type="date"
+                <DateInput
                   value={bookingDate}
                   onChange={(event) => setBookingDate(event.target.value)}
                   className="rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white outline-none transition hover:border-white/25 focus:border-cyan-400"
@@ -306,15 +313,33 @@ const GroomingBookings = () => {
       {reviewTarget && (
         <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-2xl border border-cyan-300/20 bg-slate-900 p-6 shadow-2xl shadow-cyan-950/30">
-            <h2 className="text-xl font-bold text-white">Review groomer</h2>
+            <h2 className="text-xl font-bold text-white">Grooming Service Review</h2>
             <p className="mt-3 text-sm leading-6 text-slate-400">
-              Share feedback for {reviewTarget.groomerId?.name || "this groomer"}.
+              Rate the completed service and the groomer who handled your pet.
             </p>
+            <div className="mt-5 rounded-xl border border-white/10 bg-slate-950 p-4 text-sm text-slate-300">
+              <p className="font-semibold text-white">{reviewTarget.serviceId?.serviceName || "Grooming service"}</p>
+              <p className="mt-1">Pet: {petName(reviewTarget.petId)}</p>
+              <p className="mt-1">Groomer: {reviewTarget.groomerId?.name || "Groomer"}</p>
+              <p className="mt-1">Date: {formatDate(reviewTarget.bookingDate)}</p>
+            </div>
             <label className="mt-5 block">
-              <span className="mb-2 block text-sm font-medium text-slate-300">Rating</span>
+              <span className="mb-2 block text-sm font-medium text-slate-300">Service rating</span>
               <select
-                value={reviewRating}
-                onChange={(event) => setReviewRating(event.target.value)}
+                value={serviceRating}
+                onChange={(event) => setServiceRating(event.target.value)}
+                className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white outline-none transition hover:border-white/25 focus:border-cyan-400"
+              >
+                {[5, 4, 3, 2, 1].map((rating) => (
+                  <option key={rating} value={rating}>{rating} stars</option>
+                ))}
+              </select>
+            </label>
+            <label className="mt-5 block">
+              <span className="mb-2 block text-sm font-medium text-slate-300">Groomer rating</span>
+              <select
+                value={groomerRating}
+                onChange={(event) => setGroomerRating(event.target.value)}
                 className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white outline-none transition hover:border-white/25 focus:border-cyan-400"
               >
                 {[5, 4, 3, 2, 1].map((rating) => (
@@ -327,9 +352,11 @@ const GroomingBookings = () => {
               <textarea
                 value={reviewComment}
                 onChange={(event) => setReviewComment(event.target.value)}
-                placeholder="How was the grooming service?"
                 className="min-h-28 w-full resize-y rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white outline-none transition placeholder:text-slate-600 hover:border-white/25 focus:border-cyan-400"
               />
+              <span className="mt-2 block text-xs leading-5 text-slate-500">
+                Write about the service quality, groomer behavior, pet handling, and final grooming result.
+              </span>
             </label>
             <div className="mt-6 flex flex-wrap justify-end gap-3">
               <Button variant="ghost" onClick={closeReviewDialog} disabled={reviewBusy}>

@@ -23,6 +23,7 @@ export const getGroomingServices = (params) =>
   api.get("/grooming-services", paramsConfig(params));
 export const changeGroomerPassword = (data) => api.post("/auth/change-password", data);
 export const getGroomerReviews = () => api.get("/groomers/reviews");
+export const getGroomerReviewsById = (id) => api.get(`/reviews/groomer/${id}`);
 
 export const uploadGroomerImage = (file) => {
   const formData = new FormData();

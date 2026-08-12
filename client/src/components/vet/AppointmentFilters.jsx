@@ -1,3 +1,4 @@
+import DateInput from "../common/DateInput";
 import VetFilterPanel from "./VetFilterPanel";
 import VetSearchBar from "./VetSearchBar";
 
@@ -24,8 +25,8 @@ const AppointmentFilters = ({ filters, setFilters }) => {
         <option value="newest">Newest first</option>
         <option value="oldest">Oldest first</option>
       </select>
-      <input type="date" value={filters.startDate || ""} onChange={(event) => update("startDate", event.target.value)} className={fieldClass} />
-      <input type="date" value={filters.endDate || ""} onChange={(event) => update("endDate", event.target.value)} className={fieldClass} />
+      <DateInput value={filters.startDate || ""} onChange={(event) => update("startDate", event.target.value)} className={fieldClass} />
+      <DateInput value={filters.endDate || ""} onChange={(event) => update("endDate", event.target.value)} className={fieldClass} />
       <button type="button" onClick={() => setFilters({ page: 1, limit: 10, sort: "newest" })} className="rounded-xl border border-white/10 px-4 py-3 text-sm font-semibold text-slate-300 transition hover:bg-white/5">Reset</button>
     </VetFilterPanel>
   );

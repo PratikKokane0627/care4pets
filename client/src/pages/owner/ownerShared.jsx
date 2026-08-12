@@ -1,5 +1,6 @@
 /* oxlint-disable react/only-export-components */
 import { Search } from "lucide-react";
+import DateInput from "../../components/common/DateInput";
 
 export const toArray = (payload, keys = []) => {
   for (const key of keys) {
@@ -215,6 +216,13 @@ export const Field = ({
         value={value}
         onChange={(event) => onChange(event.target.value)}
         className={`min-h-28 w-full resize-y rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white outline-none transition placeholder:text-slate-600 hover:border-white/25 focus:border-cyan-400 ${inputClassName}`}
+        {...props}
+      />
+    ) : type === "date" ? (
+      <DateInput
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className={`w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white outline-none transition placeholder:text-slate-600 hover:border-white/25 focus:border-cyan-400 ${inputClassName}`}
         {...props}
       />
     ) : (

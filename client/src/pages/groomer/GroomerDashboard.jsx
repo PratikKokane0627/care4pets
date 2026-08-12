@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import toast from "react-hot-toast";
-import { ArrowRight, CalendarDays, CheckCircle2, ChevronRight, Clock, IndianRupee, PawPrint, RefreshCw, Scissors, Users } from "lucide-react";
+import { ArrowRight, CalendarDays, CheckCircle2, ChevronRight, Clock, IndianRupee, PawPrint, RefreshCw, Scissors, Star, Users } from "lucide-react";
 
 import GroomerEmptyState from "../../components/groomer/GroomerEmptyState";
 import GroomerErrorState from "../../components/groomer/GroomerErrorState";
@@ -10,7 +10,7 @@ import GroomerPageHeader from "../../components/groomer/GroomerPageHeader";
 import GroomerScheduleCard from "../../components/groomer/GroomerScheduleCard";
 import GroomerStatCard from "../../components/groomer/GroomerStatCard";
 import GroomerStatusBadge from "../../components/groomer/GroomerStatusBadge";
-import { getGroomerBookings, getGroomerDashboard, getMyGroomerProfile } from "../../services/groomerApi";
+import { getGroomerBookings, getGroomerDashboard, getGroomerReviews, getMyGroomerProfile } from "../../services/groomerApi";
 import { formatDate, isToday, money, personName, petName, serviceName, uniqueById } from "../../utils/groomingUtils";
 
 const Panel = ({ title, description, children, action }) => (
@@ -33,8 +33,17 @@ const quickActions = [
   { label: "View customers", detail: "Open owners served by you", to: "/groomer/customers", icon: Users },
 ];
 
+const reviewSummaryFrom = (payload = {}) => {
+  const summary = payload.summary || payload.groomer || {};
+
+  return {
+    averageRating: Number(summary.averageRating || 0),
+    totalReviews: Number(summary.totalReviews || payload.reviews?.length || 0),
+  };
+};
+
 const GroomerDashboard = () => {
-  const [data, setData] = useState({ stats: {}, recentBookings: [], profile: null, bookings: [] });
+  const [data, setData] = useState({ stats: {}, recentBookings: [], profile: null, bookings: [], reviewSummary: { averageRating: 0, totalReviews: 0 } });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
@@ -44,16 +53,18 @@ const GroomerDashboard = () => {
       if (silent) setRefreshing(true);
       else setLoading(true);
       setError("");
-      const [dashboardRes, profileRes, bookingsRes] = await Promise.all([
+      const [dashboardRes, profileRes, bookingsRes, reviewsRes] = await Promise.all([
         getGroomerDashboard(),
         getMyGroomerProfile(),
         getGroomerBookings({ limit: 50 }),
+        getGroomerReviews().catch(() => ({ data: {} })),
       ]);
       setData({
         stats: dashboardRes.data.stats || {},
         recentBookings: dashboardRes.data.recentBookings || [],
         profile: profileRes.data.profile,
         bookings: bookingsRes.data.bookings || [],
+        reviewSummary: reviewSummaryFrom(reviewsRes.data),
       });
       if (silent) toast.success("Dashboard refreshed");
     } catch (err) {
@@ -70,6 +81,7 @@ const GroomerDashboard = () => {
 
   const stats = data.stats || {};
   const profile = data.profile;
+  const reviewSummary = data.reviewSummary || {};
   const bookings = data.bookings;
   const todayBookings = bookings.filter((booking) => isToday(booking.bookingDate));
   const pendingBookings = bookings.filter((booking) => booking.status === "pending");
@@ -151,7 +163,11 @@ const GroomerDashboard = () => {
           <div className="space-y-4">
             <div className="rounded-xl border border-white/10 bg-slate-950 p-4"><p className="text-sm text-slate-400">Profile completion</p><div className="mt-3 h-2 rounded-full bg-slate-800"><div className="h-full rounded-full bg-cyan-400" style={{ width: `${completion}%` }} /></div><p className="mt-2 text-sm font-semibold text-white">{completion}% complete</p></div>
             <div className="rounded-xl border border-white/10 bg-slate-950 p-4"><p className="text-sm text-slate-400">Availability</p><p className="mt-2 text-lg font-bold text-white">{profile?.availability?.filter((slot) => slot.isAvailable).length || 0} days</p></div>
-            <div className="rounded-xl border border-white/10 bg-slate-950 p-4"><p className="text-sm text-slate-400">Reviews</p><p className="mt-2 text-sm text-slate-300">Groomer reviews are not supported by the current backend.</p></div>
+            <Link to="/groomer/reviews" className="block rounded-xl border border-white/10 bg-slate-950 p-4 transition hover:border-cyan-300/30">
+              <p className="text-sm text-slate-400">Reviews</p>
+              <p className="mt-2 flex items-center gap-2 text-lg font-bold text-white"><Star size={18} className="text-amber-300" /> {reviewSummary.averageRating?.toFixed?.(1) || "0.0"}</p>
+              <p className="mt-1 text-sm text-slate-300">{reviewSummary.totalReviews || 0} total reviews</p>
+            </Link>
           </div>
         </Panel>
       </section>

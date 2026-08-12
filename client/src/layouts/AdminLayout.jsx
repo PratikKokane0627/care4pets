@@ -247,7 +247,7 @@ const AdminLayout = () => {
           </button>
         </div>
 
-        <nav className="flex-1 space-y-1 overflow-y-auto px-4 py-6">
+        <nav className="theme-scrollbar flex-1 space-y-1 overflow-y-auto px-4 py-6">
           <p className="mb-3 px-3 text-xs font-semibold uppercase tracking-[0.2em] text-slate-600">
             Management
           </p>
