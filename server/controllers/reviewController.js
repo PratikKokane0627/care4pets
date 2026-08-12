@@ -92,6 +92,16 @@ const updateVetRating = async (vetId, session = null) => {
   );
 };
 
+const parseRating = (value, label = "Rating") => {
+  const numericRating = Number(value);
+
+  if (!Number.isInteger(numericRating) || numericRating < 1 || numericRating > 5) {
+    throw new ApiError(400, `${label} must be an integer between 1 and 5`);
+  }
+
+  return numericRating;
+};
+
 export const addReview = asyncHandler(async (req, res) => {
   const userId = req.user._id;
 
@@ -412,10 +422,10 @@ export const getVetReviewsById = asyncHandler(async (req, res) => {
 
 export const addGroomerReview = asyncHandler(async (req, res) => {
   const userId = req.user._id;
-  const { groomerId, groomingBookingId, rating, comment } = req.body;
+  const { groomerId, groomingBookingId, rating, serviceRating, groomerRating, comment } = req.body;
 
-  if (!groomerId || !groomingBookingId || rating === undefined || !comment?.trim()) {
-    throw new ApiError(400, "Groomer, booking, rating and comment are required");
+  if (!groomerId || !groomingBookingId || !comment?.trim()) {
+    throw new ApiError(400, "Groomer, booking, ratings and comment are required");
   }
 
   if (!mongoose.Types.ObjectId.isValid(groomerId)) {
@@ -426,11 +436,18 @@ export const addGroomerReview = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Invalid grooming booking ID");
   }
 
-  const numericRating = Number(rating);
-
-  if (!Number.isInteger(numericRating) || numericRating < 1 || numericRating > 5) {
-    throw new ApiError(400, "Rating must be an integer between 1 and 5");
-  }
+  const numericServiceRating = parseRating(
+    serviceRating ?? rating,
+    "Service rating"
+  );
+  const numericGroomerRating = parseRating(
+    groomerRating ?? rating,
+    "Groomer rating"
+  );
+  const numericRating =
+    rating === undefined
+      ? Math.round((numericServiceRating + numericGroomerRating) / 2)
+      : parseRating(rating);
 
   const trimmedComment = comment.trim();
 
@@ -467,18 +484,21 @@ export const addGroomerReview = asyncHandler(async (req, res) => {
   const existingReview = await Review.findOne({
     userId,
     reviewType: "groomer",
-    groomerId,
+    groomingBookingId,
   });
 
   if (existingReview?.isActive) {
-    throw new ApiError(409, "You have already reviewed this groomer");
+    throw new ApiError(409, "You have already reviewed this grooming booking");
   }
 
   let createdReview;
 
   if (existingReview && !existingReview.isActive) {
     existingReview.groomingBookingId = groomingBookingId;
+    existingReview.groomerId = groomerId;
     existingReview.rating = numericRating;
+    existingReview.serviceRating = numericServiceRating;
+    existingReview.groomerRating = numericGroomerRating;
     existingReview.comment = trimmedComment;
     existingReview.isVerifiedPurchase = true;
     existingReview.isActive = true;
@@ -493,6 +513,8 @@ export const addGroomerReview = asyncHandler(async (req, res) => {
       groomerId,
       groomingBookingId,
       rating: numericRating,
+      serviceRating: numericServiceRating,
+      groomerRating: numericGroomerRating,
       comment: trimmedComment,
       isVerifiedPurchase: true,
       isActive: true,
@@ -501,7 +523,14 @@ export const addGroomerReview = asyncHandler(async (req, res) => {
 
   await createdReview.populate("userId", "name profileImage");
   await createdReview.populate("groomerId", "name email profileImage");
-  await createdReview.populate("groomingBookingId", "_id bookingDate bookingTime status");
+  await createdReview.populate({
+    path: "groomingBookingId",
+    select: "_id bookingDate bookingTime status petId serviceId",
+    populate: [
+      { path: "petId", select: "petName name species breed" },
+      { path: "serviceId", select: "serviceName name category price" },
+    ],
+  });
 
   res.status(201).json({
     success: true,
@@ -534,7 +563,14 @@ export const getGroomerReviewsById = asyncHandler(async (req, res) => {
       isActive: true,
     })
       .populate("userId", "name profileImage")
-      .populate("groomingBookingId", "_id bookingDate bookingTime status")
+      .populate({
+        path: "groomingBookingId",
+        select: "_id bookingDate bookingTime status petId serviceId",
+        populate: [
+          { path: "petId", select: "petName name species breed" },
+          { path: "serviceId", select: "serviceName name category price" },
+        ],
+      })
       .sort({ createdAt: -1 }),
     Review.aggregate([
       {
@@ -1038,7 +1074,7 @@ export const getAllReviews = asyncHandler(async (req, res) => {
       )
       .populate(
         "groomingBookingId",
-        "_id status bookingDate bookingTime"
+        "_id status bookingDate bookingTime petId serviceId"
       )
       .sort({
         [selectedSortField]: selectedSortOrder,

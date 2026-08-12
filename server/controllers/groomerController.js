@@ -106,20 +106,29 @@ export const deleteMyGroomerImage = asyncHandler(async (req, res) => {
 });
 
 export const getMyGroomerReviews = asyncHandler(async (req, res) => {
+  const groomerObjectId = req.user._id;
+
   const [reviews, ratingRows] = await Promise.all([
     Review.find({
       reviewType: "groomer",
-      groomerId: req.user._id,
+      groomerId: groomerObjectId,
       isActive: true,
     })
       .populate("userId", "name email profileImage")
-      .populate("groomingBookingId", "_id bookingDate bookingTime status")
+      .populate({
+        path: "groomingBookingId",
+        select: "_id bookingDate bookingTime status petId serviceId",
+        populate: [
+          { path: "petId", select: "petName name species breed" },
+          { path: "serviceId", select: "serviceName name category price" },
+        ],
+      })
       .sort({ createdAt: -1 }),
     Review.aggregate([
       {
         $match: {
           reviewType: "groomer",
-          groomerId: req.user._id,
+          groomerId: groomerObjectId,
           isActive: true,
         },
       },

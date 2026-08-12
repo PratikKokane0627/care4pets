@@ -76,6 +76,20 @@ const reviewSchema = new mongoose.Schema(
       max: 5,
     },
 
+    serviceRating: {
+      type: Number,
+      min: 1,
+      max: 5,
+      default: null,
+    },
+
+    groomerRating: {
+      type: Number,
+      min: 1,
+      max: 5,
+      default: null,
+    },
+
     comment: {
       type: String,
       required: true,
@@ -140,13 +154,13 @@ reviewSchema.index(
 reviewSchema.index(
   {
     userId: 1,
-    groomerId: 1,
+    groomingBookingId: 1,
   },
   {
     unique: true,
     partialFilterExpression: {
       reviewType: "groomer",
-      groomerId: { $type: "objectId" },
+      groomingBookingId: { $type: "objectId" },
     },
   }
 );
