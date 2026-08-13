@@ -147,7 +147,7 @@ const GroomerDashboard = () => {
         </Panel>
         <Panel title="Weekly Booking Summary" description="Assigned bookings by weekday">
           <div className="flex h-64 items-end justify-between gap-3 pt-5">
-            {weekly.map((item) => <div key={item.day} className="flex h-full flex-1 flex-col items-center justify-end"><div className="w-full max-w-9 rounded-t-lg bg-gradient-to-t from-indigo-600 to-cyan-400" style={{ height: `${item.count ? Math.max((item.count / maxWeekly) * 100, 12) : 4}%` }} /><span className="mt-3 text-xs text-slate-500">{item.day}</span></div>)}
+            {weekly.map((item) => <div key={item.day} className="flex h-full flex-1 flex-col items-center justify-end"><div className="w-full max-w-9 rounded-t-lg bg-gradient-to-t from-indigo-600 to-cyan-400" style={{ height: `${item.count ? Math.max((item.count / maxWeekly) * 100, 12) : 4}%` }} title={`${item.count} bookings`} /><span className="mt-3 text-xs text-slate-500">{item.day}</span></div>)}
           </div>
         </Panel>
       </section>
@@ -161,7 +161,7 @@ const GroomerDashboard = () => {
         </Panel>
         <Panel title="Profile Snapshot" description="Availability and completion">
           <div className="space-y-4">
-            <div className="rounded-xl border border-white/10 bg-slate-950 p-4"><p className="text-sm text-slate-400">Profile completion</p><div className="mt-3 h-2 rounded-full bg-slate-800"><div className="h-full rounded-full bg-cyan-400" style={{ width: `${completion}%` }} /></div><p className="mt-2 text-sm font-semibold text-white">{completion}% complete</p></div>
+            <div className="rounded-xl border border-white/10 bg-slate-950 p-4"><p className="text-sm text-slate-400">Profile completion</p><div className="mt-3 h-2 rounded-full bg-slate-800"><div className="h-full rounded-full bg-cyan-400" style={{ width: `${completion}%` }} title={`${completion}% profile complete`} /></div><p className="mt-2 text-sm font-semibold text-white">{completion}% complete</p></div>
             <div className="rounded-xl border border-white/10 bg-slate-950 p-4"><p className="text-sm text-slate-400">Availability</p><p className="mt-2 text-lg font-bold text-white">{profile?.availability?.filter((slot) => slot.isAvailable).length || 0} days</p></div>
             <Link to="/groomer/reviews" className="block rounded-xl border border-white/10 bg-slate-950 p-4 transition hover:border-cyan-300/30">
               <p className="text-sm text-slate-400">Reviews</p>

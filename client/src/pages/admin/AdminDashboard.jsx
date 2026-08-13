@@ -375,6 +375,7 @@ const AdminDashboard = () => {
                         item.value ? 6 : 0
                       )}%`,
                     }}
+                    title={`${item.value} ${item.label.toLowerCase()}`}
                   />
                 </div>
               </div>

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Bell,
   CalendarDays,
@@ -26,6 +26,7 @@ import {
 } from "react-router-dom";
 
 import { OwnerProvider } from "../context/OwnerContext";
+import DashboardSearch from "../components/common/DashboardSearch";
 import api from "../services/api";
 
 const navigationItems = [
@@ -98,8 +99,28 @@ const navigationItems = [
   },
 ];
 
+const searchableActions = [
+  { label: "Dashboard", hint: "Owner overview and quick stats", path: "/owner/dashboard", keywords: ["home", "overview", "stats"] },
+  { label: "My Pets", hint: "Pet profiles and details", path: "/owner/pets", keywords: ["pet", "pets", "profiles"] },
+  { label: "Appointments", hint: "View veterinary appointments", path: "/owner/appointments", keywords: ["appointment", "appointments", "booking", "bookings"] },
+  { label: "Book Appointment", hint: "Schedule a veterinary visit", path: "/owner/appointments/book", keywords: ["book", "vet", "doctor", "schedule"] },
+  { label: "Veterinarians", hint: "Find and view vets", path: "/owner/veterinarians", keywords: ["vet", "vets", "doctor", "clinic"] },
+  { label: "Groomer", hint: "Find groomers", path: "/owner/groomers", keywords: ["groomer", "groomers"] },
+  { label: "Grooming Service", hint: "Book and review grooming services", path: "/owner/grooming", keywords: ["grooming", "service", "services", "review"] },
+  { label: "Health Records", hint: "Pet medical history", path: "/owner/health-records", keywords: ["health", "records", "medical"] },
+  { label: "Vaccinations", hint: "Pet vaccination records", path: "/owner/vaccinations", keywords: ["vaccine", "vaccination", "vaccinations"] },
+  { label: "Pet Shop", hint: "Browse products", path: "/owner/shop", keywords: ["shop", "product", "products"] },
+  { label: "Wishlist", hint: "Saved shop items", path: "/owner/shop/wishlist", keywords: ["wishlist", "saved"] },
+  { label: "Cart", hint: "Shopping cart", path: "/owner/cart", keywords: ["cart", "checkout"] },
+  { label: "Orders", hint: "Order history", path: "/owner/orders", keywords: ["order", "orders", "purchase"] },
+  { label: "Notifications", hint: "Owner alerts", path: "/owner/notifications", keywords: ["notification", "notifications", "alerts"] },
+  { label: "My Profile", hint: "Owner profile details", path: "/owner/profile", keywords: ["profile", "account"] },
+  { label: "Settings", hint: "Owner account settings", path: "/owner/settings", keywords: ["settings", "password"] },
+];
+
 const OwnerLayout = () => {
   const navigate = useNavigate();
+  const profileRef = useRef(null);
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -171,6 +192,17 @@ const OwnerLayout = () => {
       window.removeEventListener("owner-shop-counts-updated", refreshShopCounts);
       window.removeEventListener("focus", refreshShopCounts);
     };
+  }, []);
+
+  useEffect(() => {
+    const close = (event) => {
+      if (profileRef.current && !profileRef.current.contains(event.target)) {
+        setProfileOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
   }, []);
 
   const owner = {
@@ -333,8 +365,8 @@ const OwnerLayout = () => {
       {/* Main area */}
       <div className="lg:pl-72">
         {/* Top navbar */}
-        <header className="sticky top-0 z-30 flex h-20 items-center justify-between border-b border-white/10 bg-slate-950/90 px-4 backdrop-blur-xl sm:px-6 lg:px-8">
-          <div className="flex items-center gap-4">
+        <header className="sticky top-0 z-30 flex h-20 items-center gap-4 border-b border-white/10 bg-slate-950/90 px-4 backdrop-blur-xl sm:px-6 lg:px-8">
+          <div className="flex min-w-0 flex-1 items-center gap-4">
             <button
               type="button"
               onClick={() => setSidebarOpen(true)}
@@ -343,7 +375,9 @@ const OwnerLayout = () => {
               <Menu size={22} />
             </button>
 
-            <div>
+            <DashboardSearch actions={searchableActions} placeholder="Search owner dashboard..." noMatchToast="No matching owner page found" />
+
+            <div className="md:hidden">
               <h2 className="font-semibold text-white">Owner Portal</h2>
               <p className="hidden text-xs text-slate-500 sm:block">
                 Manage your pets and their healthcare
@@ -389,7 +423,7 @@ const OwnerLayout = () => {
             </button>
 
             {/* Profile dropdown */}
-            <div className="relative">
+            <div className="relative" ref={profileRef}>
               <button
                 type="button"
                 onClick={() => setProfileOpen((previous) => !previous)}

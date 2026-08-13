@@ -8,7 +8,6 @@ import {
   LogOut,
   Menu,
   PawPrint,
-  Search,
   Settings,
   Star,
   Stethoscope,
@@ -19,6 +18,7 @@ import {
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 
+import DashboardSearch from "../components/common/DashboardSearch";
 import { getMyVetProfile } from "../services/vetApi";
 
 const navigationItems = [
@@ -52,11 +52,8 @@ const searchableActions = [
 const VetLayout = () => {
   const navigate = useNavigate();
   const dropdownRef = useRef(null);
-  const searchRef = useRef(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
-  const [search, setSearch] = useState("");
-  const [searchOpen, setSearchOpen] = useState(false);
   const [storedUser, setStoredUser] = useState(() => JSON.parse(localStorage.getItem("user") || "{}"));
   const [vetProfileImage, setVetProfileImage] = useState("");
   const vetName = storedUser.name || storedUser.fullName || "Veterinarian";
@@ -87,37 +84,10 @@ const VetLayout = () => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
         setProfileOpen(false);
       }
-      if (searchRef.current && !searchRef.current.contains(event.target)) {
-        setSearchOpen(false);
-      }
     };
     document.addEventListener("mousedown", close);
     return () => document.removeEventListener("mousedown", close);
   }, []);
-
-  const searchMatches = search.trim()
-    ? searchableActions
-        .filter((item) => {
-          const query = search.trim().toLowerCase();
-          return [item.label, item.hint, ...item.keywords].some((value) => value.toLowerCase().includes(query));
-        })
-        .slice(0, 6)
-    : searchableActions.slice(0, 5);
-
-  const goToSearchResult = (path) => {
-    navigate(path);
-    setSearch("");
-    setSearchOpen(false);
-  };
-
-  const submitSearch = (event) => {
-    event.preventDefault();
-    if (searchMatches.length) {
-      goToSearchResult(searchMatches[0].path);
-      return;
-    }
-    toast.error("No matching vet page found");
-  };
 
   const logout = () => {
     localStorage.removeItem("token");
@@ -172,57 +142,7 @@ const VetLayout = () => {
       <div className="lg:pl-72">
         <header className="sticky top-0 z-30 flex h-20 items-center gap-4 border-b border-white/10 bg-slate-950/90 px-4 backdrop-blur-xl sm:px-6 lg:px-8">
           <button type="button" aria-label="Open sidebar" onClick={() => setSidebarOpen(true)} className="rounded-xl border border-white/10 p-2.5 text-slate-300 lg:hidden"><Menu size={22} /></button>
-          <form ref={searchRef} onSubmit={submitSearch} className="relative hidden max-w-xl flex-1 md:block">
-            <div className={`flex items-center rounded-xl border bg-slate-900 px-4 transition ${searchOpen ? "border-cyan-300/40 ring-2 ring-cyan-300/10" : "border-white/10"}`}>
-              <Search size={18} className="text-slate-500" />
-              <input
-                type="search"
-                value={search}
-                onFocus={() => setSearchOpen(true)}
-                onChange={(event) => {
-                  setSearch(event.target.value);
-                  setSearchOpen(true);
-                }}
-                placeholder="Search dashboard..."
-                className="w-full bg-transparent px-3 py-3 text-sm text-white outline-none placeholder:text-slate-600"
-              />
-              {search && (
-                <button
-                  type="button"
-                  aria-label="Clear search"
-                  onClick={() => {
-                    setSearch("");
-                    setSearchOpen(false);
-                  }}
-                  className="rounded-lg p-1 text-slate-500 transition hover:bg-white/5 hover:text-white"
-                >
-                  <X size={17} />
-                </button>
-              )}
-            </div>
-            {searchOpen && (
-              <div className="absolute left-0 right-0 top-full z-50 mt-2 overflow-hidden rounded-xl border border-white/10 bg-slate-900 p-2 shadow-2xl shadow-black/40">
-                {searchMatches.length ? (
-                  searchMatches.map((item) => (
-                    <button
-                      key={item.path}
-                      type="button"
-                      onClick={() => goToSearchResult(item.path)}
-                      className="flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-left transition hover:bg-cyan-400/10"
-                    >
-                      <span>
-                        <span className="block text-sm font-semibold text-white">{item.label}</span>
-                        <span className="mt-0.5 block text-xs text-slate-500">{item.hint}</span>
-                      </span>
-                      <span className="text-xs font-semibold text-cyan-300">Open</span>
-                    </button>
-                  ))
-                ) : (
-                  <p className="px-3 py-3 text-sm text-slate-500">No vet page matches "{search}".</p>
-                )}
-              </div>
-            )}
-          </form>
+          <DashboardSearch actions={searchableActions} placeholder="Search vet dashboard..." noMatchToast="No matching vet page found" />
           <div className="ml-auto flex items-center gap-2 sm:gap-3">
             <button type="button" onClick={() => navigate("/vet/notifications")} className="relative rounded-xl border border-white/10 bg-slate-900 p-3 text-slate-400 transition hover:text-white" aria-label="Open notifications">
               <Bell size={20} />

@@ -10,7 +10,6 @@ import {
   Menu,
   PawPrint,
   Scissors,
-  Search,
   Settings,
   Star,
   Store,
@@ -21,6 +20,7 @@ import {
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 
+import DashboardSearch from "../components/common/DashboardSearch";
 import { getMyGroomerProfile } from "../services/groomerApi";
 
 const navigationItems = [
@@ -39,25 +39,28 @@ const navigationItems = [
 ];
 
 const searchableActions = [
+  { label: "Dashboard", path: "/groomer/dashboard", hint: "Groomer overview and stats", keywords: ["home", "overview", "stats"] },
+  { label: "Grooming Bookings", path: "/groomer/bookings", hint: "Assigned and available grooming bookings", keywords: ["booking", "bookings", "jobs"] },
   { label: "Pending bookings", path: "/groomer/bookings?status=pending", keywords: ["pending", "requests"] },
   { label: "Accepted bookings", path: "/groomer/bookings?status=accepted", keywords: ["accepted", "confirmed"] },
   { label: "Completed bookings", path: "/groomer/bookings?status=completed", keywords: ["completed", "done"] },
-  { label: "Schedule", path: "/groomer/schedule", keywords: ["today", "upcoming", "calendar"] },
-  { label: "Customers", path: "/groomer/customers", keywords: ["owners", "clients"] },
-  { label: "Pets", path: "/groomer/pets", keywords: ["pet", "animals"] },
-  { label: "Services", path: "/groomer/services", keywords: ["service", "price"] },
-  { label: "Availability", path: "/groomer/availability", keywords: ["time", "hours"] },
-  { label: "Profile", path: "/groomer/profile", keywords: ["account"] },
+  { label: "Schedule", path: "/groomer/schedule", hint: "Today and upcoming grooming work", keywords: ["today", "upcoming", "calendar"] },
+  { label: "Customers", path: "/groomer/customers", hint: "Owner client list", keywords: ["owners", "clients"] },
+  { label: "Pets", path: "/groomer/pets", hint: "Pets assigned to grooming bookings", keywords: ["pet", "animals"] },
+  { label: "Services", path: "/groomer/services", hint: "Grooming services and pricing", keywords: ["service", "price"] },
+  { label: "Availability", path: "/groomer/availability", hint: "Working days and hours", keywords: ["time", "hours"] },
+  { label: "Earnings", path: "/groomer/earnings", hint: "Completed paid service earnings", keywords: ["earning", "earnings", "payment", "income"] },
+  { label: "Reviews", path: "/groomer/reviews", hint: "Owner reviews and ratings", keywords: ["review", "reviews", "rating"] },
+  { label: "Notifications", path: "/groomer/notifications", hint: "Unread alerts", keywords: ["notification", "notifications", "alert"] },
+  { label: "Profile", path: "/groomer/profile", hint: "Groomer account details", keywords: ["account"] },
+  { label: "Change Password", path: "/groomer/change-password", hint: "Security settings", keywords: ["password", "security"] },
 ];
 
 const GroomerLayout = () => {
   const navigate = useNavigate();
   const dropdownRef = useRef(null);
-  const searchRef = useRef(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
-  const [search, setSearch] = useState("");
-  const [searchOpen, setSearchOpen] = useState(false);
   const [profile, setProfile] = useState(null);
   const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
   const user = profile?.userId || storedUser;
@@ -77,27 +80,10 @@ const GroomerLayout = () => {
   useEffect(() => {
     const close = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) setProfileOpen(false);
-      if (searchRef.current && !searchRef.current.contains(event.target)) setSearchOpen(false);
     };
     document.addEventListener("mousedown", close);
     return () => document.removeEventListener("mousedown", close);
   }, []);
-
-  const matches = search.trim()
-    ? searchableActions.filter((item) => [item.label, ...item.keywords].some((value) => value.toLowerCase().includes(search.trim().toLowerCase()))).slice(0, 6)
-    : searchableActions.slice(0, 5);
-
-  const openResult = (path) => {
-    navigate(path);
-    setSearch("");
-    setSearchOpen(false);
-  };
-
-  const submitSearch = (event) => {
-    event.preventDefault();
-    if (matches.length) openResult(matches[0].path);
-    else toast.error("No matching groomer page found");
-  };
 
   const logout = () => {
     localStorage.removeItem("token");
@@ -141,17 +127,7 @@ const GroomerLayout = () => {
       <div className="lg:pl-72">
         <header className="sticky top-0 z-30 flex h-20 items-center gap-4 border-b border-white/10 bg-slate-950/90 px-4 backdrop-blur-xl sm:px-6 lg:px-8">
           <button type="button" aria-label="Open sidebar" onClick={() => setSidebarOpen(true)} className="rounded-xl border border-white/10 p-2.5 text-slate-300 lg:hidden"><Menu size={22} /></button>
-          <form ref={searchRef} onSubmit={submitSearch} className="relative hidden max-w-xl flex-1 md:block">
-            <div className={`flex items-center rounded-xl border bg-slate-900 px-4 transition ${searchOpen ? "border-cyan-300/40 ring-2 ring-cyan-300/10" : "border-white/10"}`}>
-              <Search size={18} className="text-slate-500" />
-              <input type="search" value={search} onFocus={() => setSearchOpen(true)} onChange={(event) => { setSearch(event.target.value); setSearchOpen(true); }} placeholder="Search groomer panel..." className="w-full bg-transparent px-3 py-3 text-sm text-white outline-none placeholder:text-slate-600" />
-            </div>
-            {searchOpen && (
-              <div className="absolute left-0 right-0 top-full z-50 mt-2 overflow-hidden rounded-xl border border-white/10 bg-slate-900 p-2 shadow-2xl shadow-black/40">
-                {matches.map((item) => <button key={item.path} type="button" onClick={() => openResult(item.path)} className="block w-full rounded-lg px-3 py-2.5 text-left text-sm font-semibold text-white hover:bg-cyan-400/10">{item.label}</button>)}
-              </div>
-            )}
-          </form>
+          <DashboardSearch actions={searchableActions} placeholder="Search groomer panel..." noMatchToast="No matching groomer page found" />
           <div className="ml-auto flex items-center gap-2 sm:gap-3">
             <button type="button" onClick={() => navigate("/groomer/notifications")} className="relative rounded-xl border border-white/10 bg-slate-900 p-3 text-slate-400 transition hover:text-white" aria-label="Open notifications">
               <Bell size={20} /><span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-red-500" />

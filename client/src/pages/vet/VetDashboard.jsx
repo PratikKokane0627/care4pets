@@ -218,7 +218,7 @@ const VetDashboard = () => {
         </Panel>
         <Panel title="Practice Snapshot" description="Profile, availability, and reviews">
           <div className="space-y-4">
-            <div className="rounded-xl border border-white/10 bg-slate-950 p-4"><p className="text-sm text-slate-400">Profile completion</p><div className="mt-3 h-2 rounded-full bg-slate-800"><div className="h-full rounded-full bg-cyan-400" style={{ width: `${completion}%` }} /></div><p className="mt-2 text-sm font-semibold text-white">{completion}% complete</p></div>
+            <div className="rounded-xl border border-white/10 bg-slate-950 p-4"><p className="text-sm text-slate-400">Profile completion</p><div className="mt-3 h-2 rounded-full bg-slate-800"><div className="h-full rounded-full bg-cyan-400" style={{ width: `${completion}%` }} title={`${completion}% profile complete`} /></div><p className="mt-2 text-sm font-semibold text-white">{completion}% complete</p></div>
             <div className="rounded-xl border border-white/10 bg-slate-950 p-4">
               <div className="flex items-center justify-between gap-3">
                 <p className="text-sm text-slate-400">Availability</p>
