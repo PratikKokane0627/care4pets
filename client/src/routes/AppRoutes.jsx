@@ -59,7 +59,6 @@ import VetAvailability from "../pages/vet/availability/VetAvailability";
 import VetReviews from "../pages/vet/reviews/VetReviews";
 import VetNotifications from "../pages/vet/notifications/VetNotifications";
 import VetProfilePage from "../pages/vet/profile/VetProfile";
-import EditVetProfile from "../pages/vet/profile/EditVetProfile";
 import VetChangePassword from "../pages/vet/profile/VetChangePassword";
 import GroomerLayout from "../layouts/GroomerLayout";
 import GroomerDashboard from "../pages/groomer/GroomerDashboard";
@@ -76,7 +75,6 @@ import GroomerEarnings from "../pages/groomer/earnings/GroomerEarnings";
 import GroomerReviews from "../pages/groomer/reviews/GroomerReviews";
 import GroomerNotifications from "../pages/groomer/notifications/GroomerNotifications";
 import GroomerProfile from "../pages/groomer/profile/GroomerProfile";
-import EditGroomerProfile from "../pages/groomer/profile/EditGroomerProfile";
 import GroomerChangePassword from "../pages/groomer/profile/GroomerChangePassword";
 
 import Users from "../pages/admin/users/Users";
@@ -194,7 +192,6 @@ const AppRoutes = () => {
           <Route path="reviews" element={<VetReviews />} />
           <Route path="notifications" element={<VetNotifications />} />
           <Route path="profile" element={<VetProfilePage />} />
-          <Route path="profile/edit" element={<EditVetProfile />} />
           <Route path="change-password" element={<VetChangePassword />} />
         </Route>
       </Route>
@@ -217,7 +214,6 @@ const AppRoutes = () => {
           <Route path="reviews" element={<GroomerReviews />} />
           <Route path="notifications" element={<GroomerNotifications />} />
           <Route path="profile" element={<GroomerProfile />} />
-          <Route path="profile/edit" element={<EditGroomerProfile />} />
           <Route path="change-password" element={<GroomerChangePassword />} />
         </Route>
       </Route>

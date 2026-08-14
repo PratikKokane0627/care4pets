@@ -30,7 +30,12 @@ const OwnerProfile = () => {
   });
   const [selectedImage, setSelectedImage] = useState(null);
   const [saving, setSaving] = useState(false);
-  const [imageSaving, setImageSaving] = useState(false);
+  const [uploadLoading, setUploadLoading] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const imageBusy = uploadLoading || deleteLoading;
+  const statusLabel = user.status
+    ? `${user.status.charAt(0).toUpperCase()}${user.status.slice(1)}`
+    : "Active";
 
   const preview = useMemo(
     () => (selectedImage ? URL.createObjectURL(selectedImage) : profileImageUrl(user)),
@@ -69,6 +74,21 @@ const OwnerProfile = () => {
       },
     }));
 
+  const resetForm = () => {
+    setForm({
+      name: user.name || "",
+      email: user.email || "",
+      phone: user.phone || "",
+      address: {
+        street: user.address?.street || "",
+        city: user.address?.city || "",
+        state: user.address?.state || "",
+        zipCode: user.address?.zipCode || user.address?.postalCode || "",
+      },
+    });
+    setSelectedImage(null);
+  };
+
   const updateProfile = async (event) => {
     event.preventDefault();
     setSaving(true);
@@ -100,7 +120,7 @@ const OwnerProfile = () => {
 
   const uploadImage = async () => {
     if (!selectedImage) return toast.error("Choose an image first");
-    setImageSaving(true);
+    setUploadLoading(true);
     try {
       const body = new FormData();
       body.append("image", selectedImage);
@@ -113,12 +133,12 @@ const OwnerProfile = () => {
     } catch (err) {
       toast.error(err.response?.data?.message || "Could not upload image");
     } finally {
-      setImageSaving(false);
+      setUploadLoading(false);
     }
   };
 
   const deleteImage = async () => {
-    setImageSaving(true);
+    setDeleteLoading(true);
     try {
       const response = await api.delete("/auth/profile/image");
       const nextUser = response.data.user || { ...user, profileImage: "" };
@@ -129,7 +149,7 @@ const OwnerProfile = () => {
     } catch (err) {
       toast.error(err.response?.data?.message || "Could not delete image");
     } finally {
-      setImageSaving(false);
+      setDeleteLoading(false);
     }
   };
 
@@ -137,56 +157,81 @@ const OwnerProfile = () => {
 
   return (
     <main>
-      <PageHeader title="Profile" description="View and update owner profile information." />
+      <PageHeader
+        title={form.name || user.name || "Owner Profile"}
+        description="Your owner account and profile details."
+      />
       <ErrorState message={error} />
-      <Panel className="grid gap-7 lg:grid-cols-[320px_1fr]">
-        <div className="rounded-2xl border border-white/10 bg-slate-950 p-6">
-          <h2 className="mb-5 font-bold text-white">Owner Profile Image</h2>
-          <div className="mx-auto flex aspect-square w-44 items-center justify-center overflow-hidden rounded-2xl border border-white/10 bg-slate-900">
-            {preview ? (
-              <img src={preview} alt={form.name || "Owner"} className="h-full w-full object-cover" />
-            ) : (
-              <UserRound className="text-slate-500" size={64} />
-            )}
-          </div>
-          <p className="mt-3 text-center text-sm text-slate-500">
-            {selectedImage ? selectedImage.name : preview ? "Current profile image" : "No profile image"}
-          </p>
-          <label className="mt-6 flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-white/10 px-4 py-3 text-sm font-semibold text-slate-300 transition hover:-translate-y-0.5 hover:border-cyan-300/35 hover:bg-white/5 hover:text-white">
-            <Camera size={18} />
-            Choose Image
-            <input type="file" accept="image/*" className="hidden" onChange={(event) => setSelectedImage(event.target.files?.[0] || null)} />
-          </label>
-          <Button className="mt-4 w-full" onClick={uploadImage} disabled={imageSaving}>
-            {imageSaving ? "Saving..." : "Upload Image"}
-          </Button>
-          {(preview || selectedImage) && (
-            <Button variant="danger" className="mt-4 w-full" onClick={deleteImage} disabled={imageSaving}>
-              <Trash2 size={18} />
-              Delete Image
-            </Button>
-          )}
-        </div>
+      <form onSubmit={updateProfile}>
+        <Panel className="grid gap-7 lg:grid-cols-[340px_1fr]">
+          <div>
+            <div className="rounded-2xl border border-white/10 bg-slate-950 p-6">
+              <h2 className="mb-5 font-bold text-white">Profile Image</h2>
+              <div className="mx-auto flex aspect-square w-44 items-center justify-center overflow-hidden rounded-2xl border border-white/10 bg-slate-900">
+                {preview ? (
+                  <img src={preview} alt={form.name || "Owner"} className="h-full w-full object-cover" />
+                ) : (
+                  <UserRound className="text-slate-500" size={64} />
+                )}
+              </div>
+              <p className="mt-3 text-center text-sm text-slate-500">
+                {selectedImage ? selectedImage.name : preview ? "Current profile image" : "No profile image"}
+              </p>
+              <label className="mt-6 flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-white/10 px-4 py-3 text-sm font-semibold text-slate-300 transition hover:-translate-y-0.5 hover:border-cyan-300/35 hover:bg-white/5 hover:text-white">
+                <Camera size={18} />
+                Choose Image
+                <input type="file" accept="image/*" className="hidden" disabled={imageBusy} onChange={(event) => setSelectedImage(event.target.files?.[0] || null)} />
+              </label>
+              <Button className="mt-4 w-full" onClick={uploadImage} disabled={imageBusy}>
+                {uploadLoading ? "Uploading..." : "Upload Image"}
+              </Button>
+              {(preview || selectedImage) && (
+                <Button variant="danger" className="mt-4 w-full" onClick={deleteImage} disabled={imageBusy}>
+                  <Trash2 size={18} />
+                  {deleteLoading ? "Deleting..." : "Delete Image"}
+                </Button>
+              )}
+            </div>
 
-        <form onSubmit={updateProfile} className="grid content-start gap-5 md:grid-cols-2">
-          <Field label="Name" value={form.name} onChange={(value) => setField("name", value)} required />
-          <Field label="Email" type="email" value={form.email} onChange={(value) => setField("email", value)} required />
-          <Field label="Phone" value={form.phone} onChange={(value) => setField("phone", value)} required />
-          <div className="md:col-span-2">
-            <div className="mb-1 mt-2 border-t border-white/10 pt-5">
-              <h2 className="text-lg font-bold text-white">Address</h2>
-              <p className="mt-1 text-sm text-slate-500">Used for orders, appointments and service visits.</p>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+              <Button type="submit" className="w-full py-3" disabled={saving}>
+                {saving ? "Saving..." : "Save Profile"}
+              </Button>
+              <Button type="button" variant="ghost" className="w-full py-3" onClick={resetForm} disabled={saving}>
+                Cancel
+              </Button>
             </div>
           </div>
-          <Field className="md:col-span-2" label="Street address" value={form.address.street} onChange={(value) => setAddressField("street", value)} />
-          <Field label="City" value={form.address.city} onChange={(value) => setAddressField("city", value)} />
-          <Field label="State" value={form.address.state} onChange={(value) => setAddressField("state", value)} />
-          <Field label="Zip code" value={form.address.zipCode} onChange={(value) => setAddressField("zipCode", value)} />
-          <div className="md:col-span-2">
-            <Button type="submit" disabled={saving}>{saving ? "Updating..." : "Update Profile"}</Button>
+
+          <div className="content-start">
+            <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-xl font-bold text-white">Profile Details</h2>
+                <p className="mt-1 text-sm text-slate-500">Information vets, groomers and admins use for bookings and orders.</p>
+              </div>
+              <span className="rounded-full border border-emerald-300/20 bg-emerald-400/10 px-4 py-2 text-sm font-bold text-emerald-300">
+                {statusLabel}
+              </span>
+            </div>
+
+            <div className="grid gap-5 md:grid-cols-2">
+              <Field label="Name" value={form.name} onChange={(value) => setField("name", value)} required />
+              <Field label="Email" type="email" value={form.email} onChange={(value) => setField("email", value)} required />
+              <Field label="Phone" value={form.phone} onChange={(value) => setField("phone", value)} required />
+              <div className="md:col-span-2">
+                <div className="mb-1 mt-2 border-t border-white/10 pt-5">
+                  <h2 className="text-lg font-bold text-white">Address</h2>
+                  <p className="mt-1 text-sm text-slate-500">Used for orders, appointments and service visits.</p>
+                </div>
+              </div>
+              <Field className="md:col-span-2" label="Street address" value={form.address.street} onChange={(value) => setAddressField("street", value)} />
+              <Field label="City" value={form.address.city} onChange={(value) => setAddressField("city", value)} />
+              <Field label="State" value={form.address.state} onChange={(value) => setAddressField("state", value)} />
+              <Field label="Zip code" value={form.address.zipCode} onChange={(value) => setAddressField("zipCode", value)} />
+            </div>
           </div>
-        </form>
-      </Panel>
+        </Panel>
+      </form>
     </main>
   );
 };

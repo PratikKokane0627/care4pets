@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
 import toast from "react-hot-toast";
 
 import ProfileImageUploader from "../../../components/vet/ProfileImageUploader";
@@ -7,8 +6,28 @@ import VetErrorState from "../../../components/vet/VetErrorState";
 import VetLoader from "../../../components/vet/VetLoader";
 import VetPageHeader from "../../../components/vet/VetPageHeader";
 import VetStatusBadge from "../../../components/vet/VetStatusBadge";
-import { deleteVetImage, getMyVetProfile, uploadVetImage } from "../../../services/vetApi";
-import { money } from "../../../utils/appointmentUtils";
+import { deleteVetImage, getMyVetProfile, updateMyVetProfile, uploadVetImage } from "../../../services/vetApi";
+
+const inputClass = "w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white outline-none transition placeholder:text-slate-600 hover:border-white/25 focus:border-cyan-400";
+const specializations = ["General Veterinary", "Surgery", "Dermatology", "Dentistry", "Cardiology", "Orthopedics", "Emergency Care", "Other"];
+
+const vetFormFrom = (vet = {}) => ({
+  name: vet.userId?.name || "",
+  email: vet.userId?.email || "",
+  phone: vet.userId?.phone || "",
+  qualification: vet.qualification || "",
+  specialization: vet.specialization || "General Veterinary",
+  experience: vet.experience ?? 0,
+  clinicName: vet.clinicName || "",
+  clinicAddress: {
+    street: vet.clinicAddress?.street || "",
+    city: vet.clinicAddress?.city || "",
+    state: vet.clinicAddress?.state || "",
+    postalCode: vet.clinicAddress?.postalCode || "",
+  },
+  consultationFee: vet.consultationFee ?? 0,
+  about: vet.about || "",
+});
 
 const Info = ({ label, value, className = "" }) => (
   <div className={className}>
@@ -19,10 +38,20 @@ const Info = ({ label, value, className = "" }) => (
   </div>
 );
 
+const Field = ({ label, children, className = "" }) => (
+  <label className={`block ${className}`}>
+    <span className="mb-2 block text-sm font-medium text-slate-300">{label}</span>
+    {children}
+  </label>
+);
+
 const VetProfile = () => {
   const [vet, setVet] = useState(null);
+  const [form, setForm] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [imageLoading, setImageLoading] = useState(false);
+  const [uploadLoading, setUploadLoading] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [selectedImage, setSelectedImage] = useState(null);
   const [error, setError] = useState("");
   const preview = useMemo(
@@ -40,6 +69,7 @@ const VetProfile = () => {
       setError("");
       const response = await getMyVetProfile();
       setVet(response.data.vet);
+      setForm(vetFormFrom(response.data.vet));
     } catch (err) {
       const message = err.response?.data?.message || "Could not load profile";
       setError(message);
@@ -50,6 +80,20 @@ const VetProfile = () => {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  const setField = (field, value) => {
+    setForm((current) => ({ ...current, [field]: value }));
+  };
+
+  const setAddress = (field, value) => {
+    setForm((current) => ({
+      ...current,
+      clinicAddress: {
+        ...current.clinicAddress,
+        [field]: value,
+      },
+    }));
+  };
 
   const chooseImage = (event) => {
     const file = event.target.files?.[0];
@@ -65,7 +109,7 @@ const VetProfile = () => {
 
     const body = new FormData();
     body.append("image", selectedImage);
-    setImageLoading(true);
+    setUploadLoading(true);
     try {
       const response = await uploadVetImage(body);
       const nextImage = response.data.image;
@@ -78,12 +122,12 @@ const VetProfile = () => {
     } catch (err) {
       toast.error(err.response?.data?.message || "Could not upload image");
     } finally {
-      setImageLoading(false);
+      setUploadLoading(false);
     }
   };
 
   const removeImage = async () => {
-    setImageLoading(true);
+    setDeleteLoading(true);
     try {
       const response = await deleteVetImage();
       setVet((current) => ({ ...current, profileImage: response.data.image }));
@@ -95,7 +139,45 @@ const VetProfile = () => {
     } catch (err) {
       toast.error(err.response?.data?.message || "Could not delete image");
     } finally {
-      setImageLoading(false);
+      setDeleteLoading(false);
+    }
+  };
+
+  const resetForm = () => {
+    setForm(vetFormFrom(vet));
+    setSelectedImage(null);
+  };
+
+  const saveProfile = async (event) => {
+    event.preventDefault();
+    if (!form.name.trim() || !form.email.trim() || !form.qualification.trim() || !form.clinicName.trim()) {
+      toast.error("Required profile fields are missing");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const response = await updateMyVetProfile({
+        ...form,
+        experience: Number(form.experience),
+        consultationFee: Number(form.consultationFee),
+      });
+      const nextVet = response.data.vet;
+      setVet(nextVet);
+      setForm(vetFormFrom(nextVet));
+      const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
+      localStorage.setItem("user", JSON.stringify({
+        ...currentUser,
+        name: nextVet.userId?.name || currentUser.name,
+        email: nextVet.userId?.email || currentUser.email,
+        phone: nextVet.userId?.phone || currentUser.phone,
+      }));
+      window.dispatchEvent(new Event("vet-profile-updated"));
+      toast.success("Profile updated");
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Could not update profile");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -104,38 +186,66 @@ const VetProfile = () => {
 
   return (
     <main>
-      <VetPageHeader title={vet?.userId?.name || "Veterinarian Profile"} description="Your public veterinarian profile and approval information." action={<Link to="/vet/profile/edit" className="rounded-xl bg-cyan-400 px-4 py-3 text-sm font-bold text-slate-950">Edit Profile</Link>} />
-      <section className="grid gap-5 lg:grid-cols-[320px_1fr]">
+      <VetPageHeader
+        title={form?.name || vet?.userId?.name || "Veterinarian Profile"}
+        description="Your veterinarian account and profile details."
+      />
+
+      <form onSubmit={saveProfile} className="grid gap-7 rounded-2xl border border-white/10 bg-slate-900 p-6 lg:grid-cols-[340px_1fr]">
         <div>
           <ProfileImageUploader
-            title="Vet Profile Image"
+            title="Profile Image"
             preview={preview}
             selectedName={selectedImage?.name}
             onChoose={chooseImage}
             onUpload={uploadImage}
             onDelete={removeImage}
-            loading={imageLoading}
+            uploadLoading={uploadLoading}
+            deleteLoading={deleteLoading}
           />
-          <div className="mt-5 text-center">
-            <h2 className="text-xl font-bold text-white">{vet?.userId?.name}</h2>
-            <p className="mt-1 text-sm text-slate-400">{vet?.specialization}</p>
-            <div className="mt-3"><VetStatusBadge status={vet?.status} /></div>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+            <button type="submit" disabled={saving} className="rounded-xl bg-cyan-400 px-5 py-3 text-sm font-bold text-slate-950 transition hover:bg-cyan-300 disabled:opacity-60">
+              {saving ? "Saving..." : "Save Profile"}
+            </button>
+            <button type="button" onClick={resetForm} disabled={saving} className="rounded-xl border border-white/10 px-5 py-3 text-sm font-semibold text-slate-300 transition hover:bg-white/5 disabled:opacity-60">
+              Cancel
+            </button>
           </div>
         </div>
-        <div className="grid gap-5 rounded-2xl border border-white/10 bg-slate-900 p-5 md:grid-cols-2 xl:grid-cols-3">
-          <Info label="Email" value={vet?.userId?.email} />
-          <Info label="Phone" value={vet?.userId?.phone} />
-          <Info label="Qualification" value={vet?.qualification} />
-          <Info label="Experience" value={`${vet?.experience || 0} years`} />
-          <Info label="Registration" value={vet?.registrationNumber} />
-          <Info label="Clinic" value={vet?.clinicName} />
-          <Info label="Fee" value={money(vet?.consultationFee)} />
-          <Info label="Rating" value={`${vet?.averageRating || 0} / 5 (${vet?.totalReviews || 0} reviews)`} />
-          <Info label="Status" value={vet?.isActive ? "Active" : "Inactive"} />
-          <Info className="md:col-span-2 xl:col-span-3" label="Clinic Address" value={[vet?.clinicAddress?.street, vet?.clinicAddress?.city, vet?.clinicAddress?.state, vet?.clinicAddress?.postalCode].filter(Boolean).join(", ")} />
-          <Info className="md:col-span-2 xl:col-span-3" label="About" value={vet?.about} />
+
+        <div className="content-start">
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-xl font-bold text-white">Profile Details</h2>
+              <p className="mt-1 text-sm text-slate-500">Information owners and admins use for appointment bookings.</p>
+            </div>
+            <VetStatusBadge status={vet?.status} />
+          </div>
+
+          <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+            <Field label="Name *"><input className={inputClass} value={form?.name || ""} onChange={(event) => setField("name", event.target.value)} /></Field>
+            <Field label="Email *"><input type="email" className={inputClass} value={form?.email || ""} onChange={(event) => setField("email", event.target.value)} /></Field>
+            <Field label="Phone"><input className={inputClass} value={form?.phone || ""} onChange={(event) => setField("phone", event.target.value)} /></Field>
+            <Field label="Qualification *"><input className={inputClass} value={form?.qualification || ""} onChange={(event) => setField("qualification", event.target.value)} /></Field>
+            <Field label="Specialization"><select className={inputClass} value={form?.specialization || "General Veterinary"} onChange={(event) => setField("specialization", event.target.value)}>{specializations.map((item) => <option key={item} value={item}>{item}</option>)}</select></Field>
+            <Field label="Experience"><input type="number" min="0" className={inputClass} value={form?.experience ?? 0} onChange={(event) => setField("experience", event.target.value)} /></Field>
+            <Info label="Registration" value={vet?.registrationNumber} />
+            <Field label="Clinic *"><input className={inputClass} value={form?.clinicName || ""} onChange={(event) => setField("clinicName", event.target.value)} /></Field>
+            <Field label="Fee"><input type="number" min="0" className={inputClass} value={form?.consultationFee ?? 0} onChange={(event) => setField("consultationFee", event.target.value)} /></Field>
+            <Info label="Rating" value={`${vet?.averageRating || 0} / 5 (${vet?.totalReviews || 0} reviews)`} />
+            <Info label="Account Status" value={vet?.isActive ? "Active" : "Inactive"} />
+            <div className="md:col-span-2 xl:col-span-3 border-t border-white/10 pt-5">
+              <h2 className="text-lg font-bold text-white">Clinic Address</h2>
+              <p className="mt-1 text-sm text-slate-500">Shown to owners when they book appointments.</p>
+            </div>
+            <Field className="md:col-span-2 xl:col-span-3" label="Street"><input className={inputClass} value={form?.clinicAddress?.street || ""} onChange={(event) => setAddress("street", event.target.value)} /></Field>
+            <Field label="City"><input className={inputClass} value={form?.clinicAddress?.city || ""} onChange={(event) => setAddress("city", event.target.value)} /></Field>
+            <Field label="State"><input className={inputClass} value={form?.clinicAddress?.state || ""} onChange={(event) => setAddress("state", event.target.value)} /></Field>
+            <Field label="Postal Code"><input className={inputClass} value={form?.clinicAddress?.postalCode || ""} onChange={(event) => setAddress("postalCode", event.target.value)} /></Field>
+            <Field className="md:col-span-2 xl:col-span-3" label="About"><textarea maxLength={1000} className={`${inputClass} min-h-32 resize-y`} value={form?.about || ""} onChange={(event) => setField("about", event.target.value)} /></Field>
+          </div>
         </div>
-      </section>
+      </form>
     </main>
   );
 };

@@ -92,7 +92,7 @@ const quickActions = [
   {
     label: "Update profile",
     detail: "Keep clinic, fee, and bio details current",
-    to: "/vet/profile/edit",
+    to: "/vet/profile",
     icon: UserRoundCog,
     accent: "text-indigo-300 bg-indigo-400/10 ring-indigo-300/15",
   },
