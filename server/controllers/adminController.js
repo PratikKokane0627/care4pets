@@ -12,7 +12,7 @@ import VetProfile from "../models/VetProfile.js";
 import GroomerProfile from "../models/GroomerProfile.js";
 import ApiError from "../utils/ApiError.js";
 import asyncHandler from "../utils/asyncHandler.js";
-import deleteAccountData from "../services/accountCleanupService.js";
+import deleteAccountData from "./accountCleanupController.js";
 
 const parsePagination = (query) => {
   const page = Math.max(Number(query.page) || 1, 1);

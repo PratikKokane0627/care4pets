@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
-import cloudinary from "../config/cloudinary.js";
 import uploadToCloudinary from "../utils/uploadToCloudinary.js";
+import deleteUploadedImage from "../utils/deleteUploadedImage.js";
 import User from "../models/User.js";
 import VetProfile from "../models/VetProfile.js";
 import asyncHandler from "../utils/asyncHandler.js";
@@ -510,17 +510,21 @@ export const uploadMyVetImage = asyncHandler(async (req, res) => {
   if (!req.file) throw new ApiError(400, "Please upload an image");
 
   const oldPublicId = vet.profileImage?.publicId;
-  const result = await uploadToCloudinary(req.file.buffer, "care4pets/vets");
+  const result = await uploadToCloudinary(
+    req.file.buffer,
+    "care4pets/vets",
+    req.file.mimetype
+  );
 
   try {
     vet.profileImage = { url: result.secure_url, publicId: result.public_id };
     await vet.save();
   } catch (error) {
-    await cloudinary.uploader.destroy(result.public_id);
+    await deleteUploadedImage(result.public_id);
     throw error;
   }
 
-  if (oldPublicId) await cloudinary.uploader.destroy(oldPublicId);
+  if (oldPublicId) await deleteUploadedImage(oldPublicId);
 
   res.json({
     success: true,
@@ -535,7 +539,7 @@ export const deleteMyVetImage = asyncHandler(async (req, res) => {
   if (!vet) throw new ApiError(404, "Veterinarian profile not found");
 
   if (vet.profileImage?.publicId) {
-    await cloudinary.uploader.destroy(vet.profileImage.publicId);
+    await deleteUploadedImage(vet.profileImage.publicId);
   }
 
   vet.profileImage = { url: "", publicId: "" };
@@ -670,7 +674,8 @@ export const uploadVetImage = asyncHandler(async (req, res) => {
 
   const result = await uploadToCloudinary(
     req.file.buffer,
-    "care4pets/vets"
+    "care4pets/vets",
+    req.file.mimetype
   );
 
   try {
@@ -681,12 +686,12 @@ export const uploadVetImage = asyncHandler(async (req, res) => {
 
     await vet.save();
   } catch (error) {
-    await cloudinary.uploader.destroy(result.public_id);
+    await deleteUploadedImage(result.public_id);
     throw error;
   }
 
   if (oldPublicId) {
-    await cloudinary.uploader.destroy(oldPublicId);
+    await deleteUploadedImage(oldPublicId);
   }
 
   res.status(200).json({

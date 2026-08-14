@@ -241,9 +241,18 @@ describe("admin operations", () => {
     const activeProfile = await request(app)
       .put("/api/groomers/profile")
       .set("Authorization", `Bearer ${groomerToken}`)
-      .send({ bio: "Experienced pet groomer", skills: ["Bath", "Haircut"] });
+      .send({
+        name: "Updated Groomer",
+        email: "updated.groomer@example.com",
+        phone: "9000000000",
+        bio: "Experienced pet groomer",
+        skills: ["Bath", "Haircut"],
+      });
     expect(activeProfile.status).toBe(200);
     expect(activeProfile.body.profile.skills).toContain("Haircut");
+    expect(activeProfile.body.profile.userId.name).toBe("Updated Groomer");
+    expect(activeProfile.body.profile.userId.email).toBe("updated.groomer@example.com");
+    expect(activeProfile.body.profile.userId.phone).toBe("9000000000");
   });
 
   it("does not allow an administrator to delete itself", async () => {

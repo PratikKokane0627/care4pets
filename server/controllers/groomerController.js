@@ -33,11 +33,29 @@ export const updateMyGroomerProfile = asyncHandler(async (req, res) => {
   const profile = await GroomerProfile.findOne({ userId: req.user._id });
   if (!profile) throw new ApiError(404, "Groomer profile not found");
 
+  const user = await User.findById(req.user._id);
+  if (!user) throw new ApiError(404, "User not found");
+
+  if (req.body.name !== undefined) user.name = String(req.body.name).trim();
+  if (req.body.email !== undefined) {
+    const email = String(req.body.email).toLowerCase().trim();
+    const exists = await User.exists({ email, _id: { $ne: req.user._id } });
+    if (exists) throw new ApiError(409, "User with this email already exists");
+    user.email = email;
+    user.isVerified = true;
+  }
+  if (req.body.phone !== undefined) user.phone = String(req.body.phone).trim();
+
   for (const field of ["bio", "experience", "skills", "serviceAreas"]) {
     if (req.body[field] !== undefined) profile[field] = req.body[field];
   }
-  await profile.save();
-  res.json({ success: true, message: "Groomer profile updated", profile });
+  await Promise.all([profile.save(), user.save()]);
+
+  const updatedProfile = await GroomerProfile.findById(profile._id).populate(
+    "userId",
+    "name email phone status profileImage address"
+  );
+  res.json({ success: true, message: "Groomer profile updated", profile: updatedProfile });
 });
 
 export const updateMyAvailability = asyncHandler(async (req, res) => {

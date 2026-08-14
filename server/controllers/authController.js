@@ -3,8 +3,8 @@ import crypto from "crypto";
 
 import User from "../models/User.js";
 import VetProfile from "../models/VetProfile.js";
-import { sendOtpEmail, sendPasswordResetEmail } from "../services/emailService.js";
-import deleteAccountData from "../services/accountCleanupService.js";
+import deleteAccountData from "./accountCleanupController.js";
+import { sendOtpEmail, sendPasswordResetEmail } from "./emailController.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import ApiError from "../utils/ApiError.js";
 import deleteUploadedImage from "../utils/deleteUploadedImage.js";
