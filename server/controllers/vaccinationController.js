@@ -4,6 +4,17 @@ import Pet from "../models/Pet.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import ApiError from "../utils/ApiError.js";
 
+const syncPetVaccinationStatus = async (petId) => {
+  const hasVaccination = await Vaccination.exists({
+    petId,
+    isActive: true,
+  });
+
+  await Pet.findByIdAndUpdate(petId, {
+    vaccinationStatus: hasVaccination ? "Completed" : "Pending",
+  });
+};
+
 export const createVaccination = asyncHandler(async (req, res) => {
   const {
     petId,
@@ -59,6 +70,8 @@ export const createVaccination = asyncHandler(async (req, res) => {
     notes,
     status: "completed",
   });
+
+  await syncPetVaccinationStatus(petId);
 
   res.status(201).json({
     success: true,
@@ -286,6 +299,7 @@ export const updateVaccination = asyncHandler(async (req, res) => {
   }
 
   await vaccination.save();
+  await syncPetVaccinationStatus(vaccination.petId);
 
   const updatedVaccination = await Vaccination.findById(
     vaccination._id
@@ -324,9 +338,10 @@ export const deleteVaccination = asyncHandler(async (req, res) => {
 
   
   vaccination.isActive = false;
-vaccination.deletedAt = new Date();
+  vaccination.deletedAt = new Date();
 
-await vaccination.save();
+  await vaccination.save();
+  await syncPetVaccinationStatus(vaccination.petId);
 
   res.status(200).json({
     success: true,
@@ -336,25 +351,26 @@ await vaccination.save();
 
 
 export const getUpcomingVaccinations = asyncHandler(async (req, res) => {
-  const days = Math.min(
-    Math.max(Number(req.query.days) || 30, 1),
-    365
-  );
+  const days = req.query.days
+    ? Math.min(Math.max(Number(req.query.days) || 30, 1), 3650)
+    : null;
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  const upcomingDate = new Date(today);
-  upcomingDate.setDate(upcomingDate.getDate() + days);
-  upcomingDate.setHours(23, 59, 59, 999);
+  const nextDueDate = { $gte: today };
+
+  if (days) {
+    const upcomingDate = new Date(today);
+    upcomingDate.setDate(upcomingDate.getDate() + days);
+    upcomingDate.setHours(23, 59, 59, 999);
+    nextDueDate.$lte = upcomingDate;
+  }
 
   const vaccinations = await Vaccination.find({
     ownerId: req.user._id,
     isActive: true,
-    nextDueDate: {
-      $gte: today,
-      $lte: upcomingDate,
-    },
+    nextDueDate,
   })
     .populate(
       "petId",

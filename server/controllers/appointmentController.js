@@ -709,6 +709,7 @@ export const completeAppointment = asyncHandler(async (req, res) => {
   const { id } = req.params;
 
   const {
+    symptoms,
     diagnosis,
     prescription,
     vetNotes,
@@ -756,6 +757,9 @@ export const completeAppointment = asyncHandler(async (req, res) => {
   }
 
   appointment.status = "completed";
+  if (symptoms !== undefined) {
+    appointment.symptoms = symptoms?.trim() || "";
+  }
   appointment.diagnosis = diagnosis.trim();
   appointment.prescription = prescription.trim();
   appointment.vetNotes = vetNotes?.trim() || "";

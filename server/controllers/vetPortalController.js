@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import Appointment from "../models/Appointment.js";
 import Pet from "../models/Pet.js";
 import Review from "../models/Review.js";
+import Vaccination from "../models/Vaccination.js";
 import VetProfile from "../models/VetProfile.js";
 import ApiError from "../utils/ApiError.js";
 import asyncHandler from "../utils/asyncHandler.js";
@@ -32,6 +33,40 @@ const dayRange = (date = new Date()) => {
   const end = new Date(start);
   end.setDate(end.getDate() + 1);
   return { start, end };
+};
+
+const getVaccinationStatus = async (petId) => {
+  const latestVaccination = await Vaccination.findOne({
+    petId,
+    isActive: true,
+  })
+    .sort({ nextDueDate: -1, vaccinationDate: -1 })
+    .select("nextDueDate")
+    .lean();
+
+  if (!latestVaccination) return "Pending";
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const nextDueDate = new Date(latestVaccination.nextDueDate);
+  nextDueDate.setHours(0, 0, 0, 0);
+
+  return nextDueDate < today ? "Overdue" : "Upcoming";
+};
+
+const attachVaccinationStatuses = async (rows) => {
+  const statuses = await Promise.all(
+    rows.map((row) => getVaccinationStatus(row.pet?._id || row._id))
+  );
+
+  return rows.map((row, index) => ({
+    ...row,
+    pet: row.pet
+      ? { ...row.pet, vaccinationStatus: statuses[index] }
+      : row.pet,
+    vaccinationStatus: row.pet ? row.vaccinationStatus : statuses[index],
+  }));
 };
 
 const appointmentPopulate = (query) =>
@@ -297,9 +332,11 @@ export const getVetPatients = asyncHandler(async (req, res) => {
   ]);
 
   const total = totalRows[0]?.total || 0;
+  const patients = await attachVaccinationStatuses(rows);
+
   res.json({
     success: true,
-    patients: rows,
+    patients,
     pagination: { currentPage: page, totalPages: Math.ceil(total / limit), total, limit },
   });
 });
@@ -334,7 +371,15 @@ export const getVetPatientById = asyncHandler(async (req, res) => {
   ]);
 
   if (!pet) throw new ApiError(404, "Patient not found");
-  res.json({ success: true, patient: pet, consultations, upcomingAppointments });
+
+  const vaccinationStatus = await getVaccinationStatus(pet._id);
+
+  res.json({
+    success: true,
+    patient: { ...pet, vaccinationStatus },
+    consultations,
+    upcomingAppointments,
+  });
 });
 
 export const getVetPrescriptions = asyncHandler(async (req, res) => {
