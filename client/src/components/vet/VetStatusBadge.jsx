@@ -5,10 +5,12 @@ const statusStyles = {
   completed: "border-emerald-300/20 bg-emerald-500/15 text-emerald-300 ring-emerald-300/10",
   paid: "border-emerald-300/20 bg-emerald-500/15 text-emerald-300 ring-emerald-300/10",
   pending: "border-amber-300/20 bg-amber-500/15 text-amber-300 ring-amber-300/10",
+  upcoming: "border-cyan-300/20 bg-cyan-500/15 text-cyan-300 ring-cyan-300/10",
   inactive: "border-slate-300/15 bg-slate-500/15 text-slate-300 ring-slate-300/10",
   rejected: "border-red-300/20 bg-red-500/15 text-red-300 ring-red-300/10",
   cancelled: "border-red-300/20 bg-red-500/15 text-red-300 ring-red-300/10",
   failed: "border-red-300/20 bg-red-500/15 text-red-300 ring-red-300/10",
+  overdue: "border-red-300/20 bg-red-500/15 text-red-300 ring-red-300/10",
   refunded: "border-indigo-300/20 bg-indigo-500/15 text-indigo-300 ring-indigo-300/10",
 };
 

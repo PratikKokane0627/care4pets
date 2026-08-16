@@ -10,10 +10,10 @@ import { getVetPatient } from "../../../services/vetApi";
 import { formatDate } from "../../../utils/dateUtils";
 import { getId, imageUrl, ownerName, petName } from "../../../utils/appointmentUtils";
 
-const Info = ({ label, value }) => (
+const Info = ({ label, value, children }) => (
   <div className="rounded-xl border border-white/10 bg-slate-950 p-4">
     <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p>
-    <p className="mt-2 text-sm font-semibold text-white">{value || "Not set"}</p>
+    {children || <p className="mt-2 text-sm font-semibold text-white">{value || "Not set"}</p>}
   </div>
 );
 
@@ -68,7 +68,9 @@ const VetPatientDetails = () => {
           <Info label="Weight" value={patient?.weight ? `${patient.weight} kg` : ""} />
           <Info label="Colour" value={patient?.color} />
           <Info label="Date of birth" value={formatDate(patient?.dateOfBirth)} />
-          <Info label="Vaccination status" value={patient?.vaccinationStatus} />
+          <Info label="Vaccination status">
+            <div className="mt-2"><VetStatusBadge status={patient?.vaccinationStatus || "Pending"} /></div>
+          </Info>
           <div className="md:col-span-2 xl:col-span-3"><Info label="Medical history" value={patient?.medicalHistory} /></div>
         </div>
       </section>

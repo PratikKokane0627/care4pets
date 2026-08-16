@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Check, FileCheck, X } from "lucide-react";
+import { Link } from "react-router-dom";
 import toast from "react-hot-toast";
 
 import AppointmentCard from "../../../components/vet/AppointmentCard";
@@ -28,7 +28,7 @@ const VetAppointments = () => {
   const [modal, setModal] = useState(null);
   const [busy, setBusy] = useState(false);
   const [reason, setReason] = useState("");
-  const [completeForm, setCompleteForm] = useState({ diagnosis: "", prescription: "", vetNotes: "" });
+  const [completeForm, setCompleteForm] = useState({ symptoms: "", diagnosis: "", prescription: "", vetNotes: "" });
 
   const load = useCallback(async () => {
     try {
@@ -65,7 +65,7 @@ const VetAppointments = () => {
       toast.success("Appointment updated");
       setModal(null);
       setReason("");
-      setCompleteForm({ diagnosis: "", prescription: "", vetNotes: "" });
+      setCompleteForm({ symptoms: "", diagnosis: "", prescription: "", vetNotes: "" });
       await load();
     } catch (err) {
       toast.error(err.response?.data?.message || "Could not update appointment");
@@ -76,18 +76,26 @@ const VetAppointments = () => {
 
   const actionButtons = (appointment) => {
     const status = String(appointment.status).toLowerCase();
+    const primaryActionClass = "whitespace-nowrap rounded-xl border border-emerald-400/30 px-4 py-2.5 text-sm font-semibold text-emerald-300 transition hover:-translate-y-0.5 hover:border-emerald-300/60 hover:bg-emerald-400/10 hover:text-emerald-200";
+    const completeActionClass = "whitespace-nowrap rounded-xl border border-cyan-400/30 px-4 py-2.5 text-sm font-semibold text-cyan-300 transition hover:-translate-y-0.5 hover:border-cyan-300/60 hover:bg-cyan-400/10 hover:text-cyan-200";
+    const viewActionClass = "whitespace-nowrap rounded-xl border border-white/10 px-4 py-2.5 text-sm font-semibold text-slate-300 transition hover:-translate-y-0.5 hover:border-cyan-300/35 hover:bg-white/5 hover:text-white";
+    const dangerActionClass = "whitespace-nowrap rounded-xl border border-red-400/30 px-4 py-2.5 text-sm font-semibold text-red-300 transition hover:-translate-y-0.5 hover:border-red-300/60 hover:bg-red-500/10 hover:text-red-200";
+
     return (
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex min-w-max flex-nowrap items-center gap-2">
+        <Link
+          to={`/vet/appointments/${getId(appointment)}`}
+          className={viewActionClass}
+        >
+          View
+        </Link>
         {status === "pending" && (
           <button
             type="button"
             title="Accept appointment"
             onClick={() => setModal({ type: "accept", appointment })}
-            className="group inline-flex items-center justify-center gap-2 rounded-full border border-emerald-300/25 bg-emerald-400/10 px-4 py-2.5 text-sm font-bold text-emerald-200 shadow-sm shadow-emerald-950/20 transition hover:-translate-y-0.5 hover:border-emerald-200/45 hover:bg-emerald-400/18 hover:text-white focus:outline-none focus:ring-2 focus:ring-emerald-300/35"
+            className={primaryActionClass}
           >
-            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-300/15 transition group-hover:bg-emerald-300/25">
-              <Check size={14} />
-            </span>
             Accept
           </button>
         )}
@@ -96,11 +104,8 @@ const VetAppointments = () => {
             type="button"
             title="Reject appointment"
             onClick={() => setModal({ type: "reject", appointment })}
-            className="group inline-flex items-center justify-center gap-2 rounded-full border border-red-300/25 bg-red-400/10 px-4 py-2.5 text-sm font-bold text-red-200 shadow-sm shadow-red-950/20 transition hover:-translate-y-0.5 hover:border-red-200/45 hover:bg-red-400/18 hover:text-white focus:outline-none focus:ring-2 focus:ring-red-300/35"
+            className={dangerActionClass}
           >
-            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-red-300/15 transition group-hover:bg-red-300/25">
-              <X size={14} />
-            </span>
             Reject
           </button>
         )}
@@ -109,11 +114,8 @@ const VetAppointments = () => {
             type="button"
             title="Complete appointment"
             onClick={() => setModal({ type: "complete", appointment })}
-            className="group inline-flex items-center justify-center gap-2 rounded-full border border-cyan-300/25 bg-cyan-400/10 px-4 py-2.5 text-sm font-bold text-cyan-200 shadow-sm shadow-cyan-950/20 transition hover:-translate-y-0.5 hover:border-cyan-200/45 hover:bg-cyan-400/18 hover:text-white focus:outline-none focus:ring-2 focus:ring-cyan-300/35"
+            className={completeActionClass}
           >
-            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-cyan-300/15 transition group-hover:bg-cyan-300/25">
-              <FileCheck size={14} />
-            </span>
             Complete
           </button>
         )}
@@ -145,7 +147,7 @@ const VetAppointments = () => {
       <VetConfirmModal open={modal?.type === "reject"} title="Reject appointment" message="Please provide a rejection reason." confirmText="Reject" danger loading={busy} onConfirm={runAction} onClose={() => setModal(null)}>
         <textarea value={reason} maxLength={500} onChange={(event) => setReason(event.target.value)} className="min-h-28 w-full resize-y rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-white outline-none focus:border-cyan-400" />
       </VetConfirmModal>
-      <VetConfirmModal open={modal?.type === "complete"} title="Complete appointment" message="Add diagnosis and prescription before completing." confirmText="Complete" loading={busy} onConfirm={runAction} onClose={() => setModal(null)}>
+      <VetConfirmModal open={modal?.type === "complete"} title="Complete appointment" message="Add symptoms, diagnosis and prescription before completing." confirmText="Complete" loading={busy} size="lg" onConfirm={runAction} onClose={() => setModal(null)}>
         <PrescriptionForm form={completeForm} setForm={setCompleteForm} />
       </VetConfirmModal>
     </main>

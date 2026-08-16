@@ -142,8 +142,8 @@ const GroomerDashboard = () => {
       </section>
 
       <section className="mt-7 grid gap-6 xl:grid-cols-[1.35fr_1fr]">
-        <Panel title="Today's Schedule" description="Assigned bookings scheduled for today" action={<Link to="/groomer/schedule" style={{ color: "#22d3ee" }} className="inline-flex items-center gap-1 text-sm font-semibold transition hover:opacity-80">View schedule <ChevronRight size={17} /></Link>}>
-          {todayBookings.length ? <div className="grid gap-4 md:grid-cols-2">{todayBookings.map((booking, index) => <GroomerScheduleCard key={booking._id} booking={booking} highlighted={index === 0} />)}</div> : <GroomerEmptyState title="No bookings today" />}
+        <Panel title="Today's Schedule" description={`${todayBookings.length} assigned booking${todayBookings.length === 1 ? "" : "s"} for today`} action={<Link to="/groomer/schedule" style={{ color: "#22d3ee" }} className="inline-flex items-center gap-1 text-sm font-semibold transition hover:opacity-80">View schedule <ChevronRight size={17} /></Link>}>
+          {todayBookings.length ? <div className="grid max-w-3xl gap-3 lg:grid-cols-2">{todayBookings.slice(0, 4).map((booking, index) => <GroomerScheduleCard key={booking._id} booking={booking} highlighted={index === 0} compact />)}</div> : <GroomerEmptyState title="No bookings today" />}
         </Panel>
         <Panel title="Weekly Booking Summary" description="Assigned bookings by weekday">
           <div className="flex h-64 items-end justify-between gap-3 pt-5">

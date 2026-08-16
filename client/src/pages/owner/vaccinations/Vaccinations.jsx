@@ -30,6 +30,14 @@ const initialForm = {
   notes: "",
 };
 
+const addOneYear = (dateValue) => {
+  if (!dateValue) return "";
+  const date = new Date(dateValue);
+  if (Number.isNaN(date.getTime())) return "";
+  date.setFullYear(date.getFullYear() + 1);
+  return date.toISOString().slice(0, 10);
+};
+
 const Vaccinations = () => {
   const [vaccinations, setVaccinations] = useState([]);
   const [pets, setPets] = useState([]);
@@ -39,6 +47,7 @@ const Vaccinations = () => {
   const [view, setView] = useState("all");
   const [deleteTarget, setDeleteTarget] = useState("");
   const [deleteBusy, setDeleteBusy] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   const load = async () => {
     const vaccinationEndpoint =
@@ -59,17 +68,47 @@ const Vaccinations = () => {
 
   const save = async (event) => {
     event.preventDefault();
-    if (editingId) {
-      await api.put(`/vaccinations/${editingId}`, form);
-      toast.success("Vaccination updated");
-    } else {
-      await api.post("/vaccinations", form);
-      toast.success("Vaccination added");
+    if (saving) return;
+
+    if (!form.petId || !form.vaccineName || !form.vaccinationDate || !form.nextDueDate) {
+      toast.error("Please fill pet, vaccine, vaccination date and next due date");
+      return;
     }
-    setForm(initialForm);
-    setEditingId("");
-    setShowForm(false);
-    await load();
+
+    if (new Date(form.nextDueDate) <= new Date(form.vaccinationDate)) {
+      toast.error("Next due date must be after vaccination date");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      if (editingId) {
+        await api.put(`/vaccinations/${editingId}`, form);
+        toast.success("Vaccination updated");
+      } else {
+        await api.post("/vaccinations", form);
+        toast.success("Vaccination added");
+      }
+      setForm(initialForm);
+      setEditingId("");
+      setShowForm(false);
+      await load();
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Could not save vaccination record");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const updateVaccinationDate = (value) => {
+    setForm((current) => ({
+      ...current,
+      vaccinationDate: value,
+      nextDueDate:
+        !current.nextDueDate || new Date(current.nextDueDate) <= new Date(value)
+          ? addOneYear(value)
+          : current.nextDueDate,
+    }));
   };
 
   const edit = (item) => {
@@ -147,13 +186,13 @@ const Vaccinations = () => {
             />
             <Field label="Vaccine" value={form.vaccineName} onChange={(value) => setForm({ ...form, vaccineName: value })} required />
             <Field label="Dose" type="number" value={form.doseNumber} onChange={(value) => setForm({ ...form, doseNumber: value })} />
-            <Field label="Vaccination date" type="date" value={form.vaccinationDate} onChange={(value) => setForm({ ...form, vaccinationDate: value })} />
+            <Field label="Vaccination date" type="date" value={form.vaccinationDate} onChange={updateVaccinationDate} />
             <Field label="Next due" type="date" value={form.nextDueDate} onChange={(value) => setForm({ ...form, nextDueDate: value })} />
             <Field label="Clinic" value={form.clinicName} onChange={(value) => setForm({ ...form, clinicName: value })} />
             <Field className="md:col-span-2" label="Notes" as="textarea" value={form.notes} onChange={(value) => setForm({ ...form, notes: value })} />
             <div className="flex gap-3 md:col-span-2">
-              <Button type="submit">{editingId ? "Update Record" : "Save Record"}</Button>
-              <Button variant="ghost" onClick={closeForm}>Cancel</Button>
+              <Button type="submit" disabled={saving}>{saving ? "Saving..." : editingId ? "Update Record" : "Save Record"}</Button>
+              <Button variant="ghost" onClick={closeForm} disabled={saving}>Cancel</Button>
             </div>
           </form>
         )}

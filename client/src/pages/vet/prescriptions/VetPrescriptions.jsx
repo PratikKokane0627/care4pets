@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import toast from "react-hot-toast";
+import { CalendarDays, FileText } from "lucide-react";
 
+import DateInput from "../../../components/common/DateInput";
 import VetDataTable from "../../../components/vet/VetDataTable";
 import VetErrorState from "../../../components/vet/VetErrorState";
-import VetFilterPanel from "../../../components/vet/VetFilterPanel";
 import VetLoader from "../../../components/vet/VetLoader";
 import VetPageHeader from "../../../components/vet/VetPageHeader";
 import VetPagination from "../../../components/vet/VetPagination";
@@ -49,16 +50,40 @@ const VetPrescriptions = () => {
     { header: "Date", render: (item) => formatDate(item.completedAt || item.appointmentDate) },
     { header: "Diagnosis", render: (item) => item.diagnosis },
     { header: "Prescription", render: (item) => <p className="max-w-md whitespace-pre-wrap">{item.prescription}</p> },
-    { header: "Actions", render: (item) => <><Link to={`/vet/appointments/${getId(item)}`} className="text-cyan-300 hover:text-cyan-200">Appointment</Link><button type="button" onClick={() => window.print()} className="ml-4 text-slate-300 hover:text-white">Print</button></> },
+    {
+      header: "Actions",
+      render: (item) => (
+        <div className="flex min-w-max flex-nowrap items-center gap-2">
+          <Link
+            to={`/vet/appointments/${getId(item)}`}
+            className="inline-flex items-center gap-2 whitespace-nowrap rounded-xl border border-cyan-400/30 px-3.5 py-2 text-sm font-semibold text-cyan-300 transition hover:-translate-y-0.5 hover:border-cyan-300/60 hover:bg-cyan-400/10 hover:text-cyan-200"
+          >
+            <FileText size={16} /> Appointment
+          </Link>
+        </div>
+      ),
+    },
   ];
 
   return (
     <main>
       <VetPageHeader title="Prescriptions" description="Completed consultations with prescription records." />
-      <VetFilterPanel>
-        <VetSearchBar value={filters.search} onChange={(search) => setFilters((current) => ({ ...current, search }))} placeholder="Search prescriptions" />
-        <input type="date" value={filters.date} onChange={(event) => setFilters((current) => ({ ...current, date: event.target.value, page: 1 }))} className="rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-sm text-white outline-none focus:border-cyan-400" />
-      </VetFilterPanel>
+      <section className="mb-5 rounded-2xl border border-white/10 bg-slate-900 p-5">
+        <div className="grid gap-4 md:grid-cols-[1.15fr_0.85fr] xl:max-w-4xl">
+          <label className="block">
+            <span className="mb-2 block text-sm font-medium text-slate-300">Search</span>
+            <VetSearchBar value={filters.search} onChange={(search) => setFilters((current) => ({ ...current, search }))} placeholder="Search prescriptions" />
+          </label>
+          <label className="block">
+            <span className="mb-2 flex items-center gap-2 text-sm font-medium text-slate-300"><CalendarDays size={16} /> Date</span>
+            <DateInput
+              value={filters.date}
+              onChange={(event) => setFilters((current) => ({ ...current, date: event.target.value, page: 1 }))}
+              className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-sm text-white outline-none transition hover:border-white/25 focus:border-cyan-400"
+            />
+          </label>
+        </div>
+      </section>
       {loading ? <VetLoader text="Loading prescriptions..." /> : error ? <VetErrorState message={error} onRetry={load} /> : <>
         <VetDataTable columns={columns} data={visibleItems} emptyTitle="No prescriptions found" emptyDescription="Completed consultations with prescriptions will appear here." />
         <VetPagination pagination={pagination} onPageChange={(page) => setFilters((current) => ({ ...current, page }))} />
