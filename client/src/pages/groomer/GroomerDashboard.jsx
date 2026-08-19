@@ -9,7 +9,6 @@ import GroomerLoader from "../../components/groomer/GroomerLoader";
 import GroomerPageHeader from "../../components/groomer/GroomerPageHeader";
 import GroomerScheduleCard from "../../components/groomer/GroomerScheduleCard";
 import GroomerStatCard from "../../components/groomer/GroomerStatCard";
-import GroomerStatusBadge from "../../components/groomer/GroomerStatusBadge";
 import { getGroomerBookings, getGroomerDashboard, getGroomerReviews, getMyGroomerProfile } from "../../services/groomerApi";
 import { formatDate, isToday, money, personName, petName, serviceName, uniqueById } from "../../utils/groomingUtils";
 
@@ -118,17 +117,6 @@ const GroomerDashboard = () => {
         description="Live overview of assigned grooming bookings, customers, pets, availability and earnings."
         actions={<button type="button" disabled={refreshing} onClick={() => load({ silent: true })} className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-sm font-semibold text-slate-300 hover:border-cyan-400/40 disabled:opacity-60"><RefreshCw size={17} className={refreshing ? "animate-spin" : ""} /> {refreshing ? "Refreshing..." : "Refresh"}</button>}
       />
-
-      <div className="mb-6 rounded-2xl border border-emerald-400/20 bg-gradient-to-r from-emerald-500/15 via-cyan-500/10 to-slate-900 p-5">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="text-xs font-bold uppercase tracking-[0.2em] text-cyan-200/80">Account status</p>
-            <h2 className="mt-1 text-2xl font-bold text-white">{profile?.isActive ? "Active groomer profile" : "Inactive groomer profile"}</h2>
-            <p className="mt-1 text-sm text-slate-300">Backend controls account status and assignment permissions.</p>
-          </div>
-          <GroomerStatusBadge status={profile?.isActive ? "active" : "inactive"} />
-        </div>
-      </div>
 
       <section className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
         <GroomerStatCard title="Today's Bookings" value={stats.todayBookings || todayBookings.length} subtitle="Scheduled today" icon={CalendarDays} color="cyan" />

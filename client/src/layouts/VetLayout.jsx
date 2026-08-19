@@ -15,10 +15,11 @@ import {
   UserRound,
   X,
 } from "lucide-react";
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 
 import DashboardSearch from "../components/common/DashboardSearch";
+import { getUnreadNotificationCount } from "../services/notificationApi";
 import { getMyVetProfile } from "../services/vetApi";
 
 const navigationItems = [
@@ -29,8 +30,6 @@ const navigationItems = [
   { label: "Availability", path: "/vet/availability", icon: Stethoscope },
   { label: "Reviews", path: "/vet/reviews", icon: Star },
   { label: "Notifications", path: "/vet/notifications", icon: Bell },
-  { label: "Profile", path: "/vet/profile", icon: UserRound },
-  { label: "Change Password", path: "/vet/change-password", icon: Settings },
 ];
 
 const searchableActions = [
@@ -45,17 +44,19 @@ const searchableActions = [
   { label: "Availability", hint: "Working days and hours", path: "/vet/availability", keywords: ["availability", "available", "schedule", "time", "hours"] },
   { label: "Reviews", hint: "Owner feedback and ratings", path: "/vet/reviews", keywords: ["review", "reviews", "rating", "ratings"] },
   { label: "Notifications", hint: "Unread alerts", path: "/vet/notifications", keywords: ["notification", "notifications", "alert", "alerts"] },
-  { label: "Profile", hint: "Clinic and personal details", path: "/vet/profile", keywords: ["profile", "account", "clinic"] },
-  { label: "Change password", hint: "Security settings", path: "/vet/change-password", keywords: ["password", "security"] },
+  { label: "My Profile", hint: "Clinic and personal details", path: "/vet/profile", keywords: ["profile", "account", "clinic"] },
+  { label: "Settings", hint: "Security settings", path: "/vet/settings", keywords: ["settings", "password", "security"] },
 ];
 
 const VetLayout = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const dropdownRef = useRef(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [storedUser, setStoredUser] = useState(() => JSON.parse(localStorage.getItem("user") || "{}"));
   const [vetProfileImage, setVetProfileImage] = useState("");
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
   const vetName = storedUser.name || storedUser.fullName || "Veterinarian";
   const vetEmail = storedUser.email || "vet@care4pets.com";
   const userProfileImage = typeof storedUser.profileImage === "string" ? storedUser.profileImage : storedUser.profileImage?.url;
@@ -89,6 +90,22 @@ const VetLayout = () => {
     return () => document.removeEventListener("mousedown", close);
   }, []);
 
+  useEffect(() => {
+    const loadUnreadCount = () => {
+      getUnreadNotificationCount()
+        .then((res) => setUnreadNotifications(res.data.unreadCount || 0))
+        .catch(() => setUnreadNotifications(0));
+    };
+
+    loadUnreadCount();
+    window.addEventListener("focus", loadUnreadCount);
+    window.addEventListener("vet-notifications-updated", loadUnreadCount);
+    return () => {
+      window.removeEventListener("focus", loadUnreadCount);
+      window.removeEventListener("vet-notifications-updated", loadUnreadCount);
+    };
+  }, [location.pathname]);
+
   const logout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
@@ -96,6 +113,13 @@ const VetLayout = () => {
     toast.success("Logged out successfully");
     navigate("/login", { replace: true });
   };
+
+  const navLinkClass = ({ isActive }) =>
+    `flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition duration-200 ${
+      isActive
+        ? "bg-cyan-400 text-slate-950 shadow-lg shadow-cyan-500/20"
+        : "text-slate-400 hover:bg-white/5 hover:text-white"
+    }`;
 
   return (
     <div className="min-h-screen bg-slate-950 text-white">
@@ -124,12 +148,22 @@ const VetLayout = () => {
                 key={item.path}
                 to={item.path}
                 onClick={() => setSidebarOpen(false)}
-                className={({ isActive }) => `flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition duration-200 ${isActive ? "bg-cyan-400 text-slate-950 shadow-lg shadow-cyan-500/20" : "text-slate-400 hover:bg-white/5 hover:text-white"}`}
+                className={navLinkClass}
               >
                 <Icon size={19} /> {item.label}
               </NavLink>
             );
           })}
+
+          <p className="mb-3 mt-7 px-3 text-xs font-semibold uppercase tracking-[0.2em] text-slate-600">Account</p>
+
+          <NavLink to="/vet/profile" onClick={() => setSidebarOpen(false)} className={navLinkClass}>
+            <UserRound size={19} /> My Profile
+          </NavLink>
+
+          <NavLink to="/vet/settings" onClick={() => setSidebarOpen(false)} className={navLinkClass}>
+            <Settings size={19} /> Settings
+          </NavLink>
         </nav>
 
         <div className="border-t border-white/10 p-4">
@@ -146,7 +180,11 @@ const VetLayout = () => {
           <div className="ml-auto flex items-center gap-2 sm:gap-3">
             <button type="button" onClick={() => navigate("/vet/notifications")} className="relative rounded-xl border border-white/10 bg-slate-900 p-3 text-slate-400 transition hover:text-white" aria-label="Open notifications">
               <Bell size={20} />
-              <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-red-500" />
+              {unreadNotifications > 0 && (
+                <span className="absolute -right-1 -top-1 flex min-h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-[11px] font-bold text-white">
+                  {unreadNotifications > 9 ? "9+" : unreadNotifications}
+                </span>
+              )}
             </button>
             <div className="relative" ref={dropdownRef}>
               <button type="button" onClick={() => setProfileOpen((value) => !value)} className="flex items-center gap-3 rounded-xl border border-white/10 bg-slate-900 px-3 py-2">
@@ -165,7 +203,9 @@ const VetLayout = () => {
                     <p className="font-semibold text-white">{vetName}</p>
                     <p className="mt-1 truncate text-xs text-slate-500">{vetEmail}</p>
                   </div>
-                  <button type="button" onClick={() => { setProfileOpen(false); navigate("/vet/profile"); }} className="mt-2 flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-slate-400 hover:bg-white/5 hover:text-white"><Settings size={17} /> Profile Settings</button>
+                  <button type="button" onClick={() => { setProfileOpen(false); navigate("/vet/profile"); }} className="mt-2 flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-slate-400 hover:bg-white/5 hover:text-white"><UserRound size={17} /> My Profile</button>
+                  <button type="button" onClick={() => { setProfileOpen(false); navigate("/vet/settings"); }} className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-slate-400 hover:bg-white/5 hover:text-white"><Settings size={17} /> Settings</button>
+                  <div className="my-2 border-t border-white/10" />
                   <button type="button" onClick={logout} className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-red-400 hover:bg-red-500/10"><LogOut size={17} /> Logout</button>
                 </div>
               )}

@@ -25,12 +25,14 @@ import {
 import {
   NavLink,
   Outlet,
+  useLocation,
   useNavigate,
 } from "react-router-dom";
 import toast from "react-hot-toast";
 
 import DashboardSearch from "../components/common/DashboardSearch";
 import api from "../services/api";
+import { getUnreadNotificationCount } from "../services/notificationApi";
 
 const navigationItems = [
   {
@@ -139,10 +141,12 @@ const searchableActions = navigationItems.map((item) => ({
 
 const AdminLayout = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const dropdownRef = useRef(null);
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
 
   const storedUser = JSON.parse(
     localStorage.getItem("user") || "{}"
@@ -168,6 +172,22 @@ const AdminLayout = () => {
     document.addEventListener("mousedown", close);
     return () => document.removeEventListener("mousedown", close);
   }, []);
+
+  useEffect(() => {
+    const loadUnreadCount = () => {
+      getUnreadNotificationCount()
+        .then((res) => setUnreadNotifications(res.data.unreadCount || 0))
+        .catch(() => setUnreadNotifications(0));
+    };
+
+    loadUnreadCount();
+    window.addEventListener("focus", loadUnreadCount);
+    window.addEventListener("admin-notifications-updated", loadUnreadCount);
+    return () => {
+      window.removeEventListener("focus", loadUnreadCount);
+      window.removeEventListener("admin-notifications-updated", loadUnreadCount);
+    };
+  }, [location.pathname]);
 
   const handleLogout = async () => {
     try {
@@ -287,11 +307,17 @@ const AdminLayout = () => {
           <div className="ml-auto flex items-center gap-2 sm:gap-3">
             <button
               type="button"
+              onClick={() => navigate("/admin/notifications")}
               className="relative rounded-xl border border-white/10 bg-slate-900 p-3 text-slate-400 transition hover:text-white"
+              aria-label="Open notifications"
             >
               <Bell size={20} />
 
-              <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-red-500" />
+              {unreadNotifications > 0 && (
+                <span className="absolute -right-1 -top-1 flex min-h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-[11px] font-bold text-white">
+                  {unreadNotifications > 9 ? "9+" : unreadNotifications}
+                </span>
+              )}
             </button>
 
             <div className="relative" ref={dropdownRef}>

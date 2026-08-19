@@ -1,11 +1,15 @@
-import GroomerEmptyState from "../../../components/groomer/GroomerEmptyState";
+import NotificationCenter from "../../../components/common/NotificationCenter";
 import GroomerPageHeader from "../../../components/groomer/GroomerPageHeader";
 
 const GroomerNotifications = () => (
-  <main>
-    <GroomerPageHeader title="Notifications" description="Notifications routes are disabled in the current backend." />
-    <GroomerEmptyState title="Notifications unavailable" description="This page is ready for display once the backend notification APIs are enabled." />
-  </main>
+  <NotificationCenter
+    HeaderComponent={GroomerPageHeader}
+    title="Notifications"
+    description="Review grooming assignments, booking updates, payments, and system alerts."
+    eventName="groomer-notifications-updated"
+    loadingText="Fetching your latest groomer alerts."
+    emptyDescription="Grooming assignments and system alerts will appear here."
+  />
 );
 
 export default GroomerNotifications;

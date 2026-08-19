@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowRight, CalendarClock, CalendarDays, ChevronRight, ClipboardList, IndianRupee, PawPrint, RefreshCw, ShieldCheck, Star, Stethoscope, UserCheck, UserRoundCog } from "lucide-react";
+import { ArrowRight, CalendarClock, CalendarDays, ChevronRight, ClipboardList, IndianRupee, PawPrint, RefreshCw, Star, Stethoscope, UserCheck, UserRoundCog } from "lucide-react";
 import { Link } from "react-router-dom";
 import toast from "react-hot-toast";
 
@@ -9,7 +9,6 @@ import VetErrorState from "../../components/vet/VetErrorState";
 import VetLoader from "../../components/vet/VetLoader";
 import VetPageHeader from "../../components/vet/VetPageHeader";
 import VetStatCard from "../../components/vet/VetStatCard";
-import VetStatusBadge from "../../components/vet/VetStatusBadge";
 import { getVetDashboard } from "../../services/vetApi";
 import { formatDate } from "../../utils/dateUtils";
 import { getId, money, ownerName, petName } from "../../utils/appointmentUtils";
@@ -39,33 +38,6 @@ const Panel = ({ title, description, children, action }) => (
     {children}
   </section>
 );
-
-const approvalCopy = {
-  approved: {
-    tone: "from-emerald-500/18 via-cyan-500/10 to-slate-900",
-    border: "border-emerald-400/25",
-    icon: "bg-emerald-400/15 text-emerald-300 ring-1 ring-emerald-300/20",
-    title: "Approved and visible",
-    description: "Your profile is active for owner bookings.",
-    badgeStatus: "active",
-  },
-  pending: {
-    tone: "from-amber-500/18 via-slate-900 to-slate-900",
-    border: "border-amber-400/25",
-    icon: "bg-amber-400/15 text-amber-300 ring-1 ring-amber-300/20",
-    title: "Approval in review",
-    description: "Admin approval is still pending.",
-    badgeStatus: "pending",
-  },
-  rejected: {
-    tone: "from-red-500/18 via-slate-900 to-slate-900",
-    border: "border-red-400/25",
-    icon: "bg-red-400/15 text-red-300 ring-1 ring-red-300/20",
-    title: "Approval rejected",
-    description: "Update your details or contact support.",
-    badgeStatus: "inactive",
-  },
-};
 
 const quickActions = [
   {
@@ -129,8 +101,6 @@ const VetDashboard = () => {
 
   const vetName = data.vet?.userId?.name || "Veterinarian";
   const stats = data.stats || {};
-  const approvalStatus = String(data.vet?.status || "pending").toLowerCase();
-  const approval = approvalCopy[approvalStatus] || approvalCopy.pending;
   const maxWeekly = Math.max(...(data.weeklyAppointments || []).map((item) => item.count), 1);
   const completion = useMemo(() => {
     const profileFields = [
@@ -162,25 +132,6 @@ const VetDashboard = () => {
           </button>
         }
       />
-
-      <div className={`mb-6 overflow-hidden rounded-2xl border ${approval.border} bg-gradient-to-r ${approval.tone} p-5 shadow-lg shadow-black/10`}>
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <div className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl ${approval.icon}`}>
-              <ShieldCheck size={25} />
-            </div>
-            <div>
-              <p className="text-xs font-bold uppercase tracking-[0.2em] text-cyan-200/80">Approval status</p>
-              <h2 className="mt-1 text-2xl font-bold capitalize text-white">{approvalStatus}</h2>
-              <p className="mt-1 text-sm text-slate-300">{approval.description}</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3 rounded-full border border-white/10 bg-slate-950/45 px-3 py-2">
-            <span className="text-sm font-semibold text-slate-300">{approval.title}</span>
-            <VetStatusBadge status={data.vet?.isActive ? approval.badgeStatus : "inactive"} />
-          </div>
-        </div>
-      </div>
 
       <section className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
         <VetStatCard title="Today's Appointments" value={stats.todayAppointments || 0} subtitle="Scheduled today" icon={CalendarDays} color="cyan" />

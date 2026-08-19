@@ -6,6 +6,17 @@ import ResourceListPage from "../../../components/owner/ResourceListPage";
 import api from "../../../services/api";
 import { Button, ConfirmDialog, formatDate, getId, money } from "../ownerShared";
 
+const orderProductNames = (order) =>
+  (order.items || [])
+    .map((item) => item.productName || item.productId?.productName)
+    .filter(Boolean);
+
+const orderTitle = (order) => {
+  const names = orderProductNames(order);
+  if (!names.length) return "Pet shop order";
+  return names.length > 1 ? `${names[0]} +${names.length - 1} more` : names[0];
+};
+
 const Orders = () => {
   const location = useLocation();
   const [status, setStatus] = useState("");
@@ -40,8 +51,8 @@ const Orders = () => {
         }
         endpoint={endpoint}
         dataKeys={["orders"]}
-        searchPlaceholder="Search orders"
-        getTitle={(order) => `Order #${String(order._id || "").slice(-6)}`}
+        searchPlaceholder="Search by product name"
+        getTitle={orderTitle}
         getSubtitle={(order) => formatDate(order.createdAt)}
         getMeta={(order) => [
           `${order.totalItems || 0} items`,

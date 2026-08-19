@@ -9,6 +9,17 @@ import useFetch from "../../../hooks/useFetch";
 import api from "../../../services/api";
 import { Button, ErrorState, InfoBlock, Panel, formatDate, getId, money } from "../ownerShared";
 
+const orderProductNames = (order) =>
+  (order?.items || [])
+    .map((item) => item.productName || item.productId?.productName)
+    .filter(Boolean);
+
+const orderTitle = (order) => {
+  const names = orderProductNames(order);
+  if (!names.length) return "Pet shop order";
+  return names.length > 1 ? `${names[0]} +${names.length - 1} more` : names[0];
+};
+
 const OrderDetails = () => {
   const { id } = useParams();
   const [order, setOrder] = useState(null);
@@ -30,7 +41,7 @@ const OrderDetails = () => {
         <div className="space-y-6">
           <Panel>
             <div className="mb-5 flex items-center justify-between">
-              <h2 className="text-xl font-bold text-white">Order #{String(order._id || "").slice(-6)}</h2>
+              <h2 className="text-xl font-bold text-white">{orderTitle(order)}</h2>
               <StatusBadge status={order.orderStatus} />
             </div>
             <div className="grid gap-4 md:grid-cols-3">

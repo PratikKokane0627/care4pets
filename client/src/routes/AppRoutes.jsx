@@ -192,6 +192,7 @@ const AppRoutes = () => {
           <Route path="reviews" element={<VetReviews />} />
           <Route path="notifications" element={<VetNotifications />} />
           <Route path="profile" element={<VetProfilePage />} />
+          <Route path="settings" element={<VetChangePassword />} />
           <Route path="change-password" element={<VetChangePassword />} />
         </Route>
       </Route>
@@ -214,6 +215,7 @@ const AppRoutes = () => {
           <Route path="reviews" element={<GroomerReviews />} />
           <Route path="notifications" element={<GroomerNotifications />} />
           <Route path="profile" element={<GroomerProfile />} />
+          <Route path="settings" element={<GroomerChangePassword />} />
           <Route path="change-password" element={<GroomerChangePassword />} />
         </Route>
       </Route>

@@ -22,12 +22,14 @@ import {
 import {
   NavLink,
   Outlet,
+  useLocation,
   useNavigate,
 } from "react-router-dom";
 
 import { OwnerProvider } from "../context/OwnerContext";
 import DashboardSearch from "../components/common/DashboardSearch";
 import api from "../services/api";
+import { getUnreadNotificationCount } from "../services/notificationApi";
 
 const navigationItems = [
   {
@@ -120,6 +122,7 @@ const searchableActions = [
 
 const OwnerLayout = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const profileRef = useRef(null);
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -128,6 +131,7 @@ const OwnerLayout = () => {
     cart: 0,
     wishlist: 0,
   });
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [storedUser, setStoredUser] = useState(() =>
     JSON.parse(localStorage.getItem("user") || "{}")
   );
@@ -168,6 +172,19 @@ const OwnerLayout = () => {
   }, []);
 
   useEffect(() => {
+    const refreshNotificationCount = async () => {
+      try {
+        const response = await getUnreadNotificationCount();
+        setUnreadNotifications(response.data.unreadCount || 0);
+      } catch {
+        setUnreadNotifications(0);
+      }
+    };
+
+    refreshNotificationCount();
+  }, [location.pathname]);
+
+  useEffect(() => {
     const refreshShopCounts = async () => {
       try {
         const [cartRes, wishlistRes] = await Promise.all([
@@ -191,6 +208,26 @@ const OwnerLayout = () => {
     return () => {
       window.removeEventListener("owner-shop-counts-updated", refreshShopCounts);
       window.removeEventListener("focus", refreshShopCounts);
+    };
+  }, []);
+
+  useEffect(() => {
+    const refreshNotificationCount = async () => {
+      try {
+        const response = await getUnreadNotificationCount();
+        setUnreadNotifications(response.data.unreadCount || 0);
+      } catch {
+        setUnreadNotifications(0);
+      }
+    };
+
+    refreshNotificationCount();
+    window.addEventListener("owner-notifications-updated", refreshNotificationCount);
+    window.addEventListener("focus", refreshNotificationCount);
+
+    return () => {
+      window.removeEventListener("owner-notifications-updated", refreshNotificationCount);
+      window.removeEventListener("focus", refreshNotificationCount);
     };
   }, []);
 
@@ -419,7 +456,11 @@ const OwnerLayout = () => {
             >
               <Bell size={20} />
 
-              <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-red-500 ring-2 ring-slate-950" />
+              {unreadNotifications > 0 && (
+                <span className="absolute -right-1 -top-1 min-w-5 rounded-full bg-red-500 px-1.5 py-0.5 text-center text-[10px] font-bold text-white ring-2 ring-slate-950">
+                  {unreadNotifications > 99 ? "99+" : unreadNotifications}
+                </span>
+              )}
             </button>
 
             {/* Profile dropdown */}

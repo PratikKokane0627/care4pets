@@ -2,6 +2,8 @@ const statusClasses = {
   completed: "bg-emerald-400/15 text-emerald-300",
   confirmed: "bg-emerald-400/15 text-emerald-300",
   active: "bg-emerald-400/15 text-emerald-300",
+  read: "bg-slate-700 text-slate-300",
+  unread: "bg-cyan-400/15 text-cyan-300",
   pending: "bg-amber-400/15 text-amber-300",
   upcoming: "bg-cyan-400/15 text-cyan-300",
   cancelled: "bg-red-400/15 text-red-300",

@@ -17,11 +17,12 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 
 import DashboardSearch from "../components/common/DashboardSearch";
 import { getMyGroomerProfile } from "../services/groomerApi";
+import { getUnreadNotificationCount } from "../services/notificationApi";
 
 const navigationItems = [
   { label: "Dashboard", path: "/groomer/dashboard", icon: LayoutDashboard },
@@ -34,8 +35,6 @@ const navigationItems = [
   { label: "Earnings", path: "/groomer/earnings", icon: IndianRupee },
   { label: "Reviews", path: "/groomer/reviews", icon: Star },
   { label: "Notifications", path: "/groomer/notifications", icon: Bell },
-  { label: "Profile", path: "/groomer/profile", icon: UserRound },
-  { label: "Change Password", path: "/groomer/change-password", icon: Settings },
 ];
 
 const searchableActions = [
@@ -52,16 +51,18 @@ const searchableActions = [
   { label: "Earnings", path: "/groomer/earnings", hint: "Completed paid service earnings", keywords: ["earning", "earnings", "payment", "income"] },
   { label: "Reviews", path: "/groomer/reviews", hint: "Owner reviews and ratings", keywords: ["review", "reviews", "rating"] },
   { label: "Notifications", path: "/groomer/notifications", hint: "Unread alerts", keywords: ["notification", "notifications", "alert"] },
-  { label: "Profile", path: "/groomer/profile", hint: "Groomer account details", keywords: ["account"] },
-  { label: "Change Password", path: "/groomer/change-password", hint: "Security settings", keywords: ["password", "security"] },
+  { label: "My Profile", path: "/groomer/profile", hint: "Groomer account details", keywords: ["profile", "account"] },
+  { label: "Settings", path: "/groomer/settings", hint: "Security settings", keywords: ["settings", "password", "security"] },
 ];
 
 const GroomerLayout = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const dropdownRef = useRef(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [profile, setProfile] = useState(null);
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
   const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
   const user = profile?.userId || storedUser;
   const groomerName = user?.name || "Groomer";
@@ -85,6 +86,22 @@ const GroomerLayout = () => {
     return () => document.removeEventListener("mousedown", close);
   }, []);
 
+  useEffect(() => {
+    const loadUnreadCount = () => {
+      getUnreadNotificationCount()
+        .then((res) => setUnreadNotifications(res.data.unreadCount || 0))
+        .catch(() => setUnreadNotifications(0));
+    };
+
+    loadUnreadCount();
+    window.addEventListener("focus", loadUnreadCount);
+    window.addEventListener("groomer-notifications-updated", loadUnreadCount);
+    return () => {
+      window.removeEventListener("focus", loadUnreadCount);
+      window.removeEventListener("groomer-notifications-updated", loadUnreadCount);
+    };
+  }, [location.pathname]);
+
   const logout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
@@ -92,6 +109,13 @@ const GroomerLayout = () => {
     toast.success("Logged out successfully");
     navigate("/login", { replace: true });
   };
+
+  const navLinkClass = ({ isActive }) =>
+    `flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition duration-200 ${
+      isActive
+        ? "bg-cyan-400 text-slate-950 shadow-lg shadow-cyan-500/20"
+        : "text-slate-400 hover:bg-white/5 hover:text-white"
+    }`;
 
   return (
     <div className="min-h-screen bg-slate-950 text-white">
@@ -114,11 +138,21 @@ const GroomerLayout = () => {
           {navigationItems.map((item) => {
             const Icon = item.icon;
             return (
-              <NavLink key={item.path} to={item.path} onClick={() => setSidebarOpen(false)} className={({ isActive }) => `flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition duration-200 ${isActive ? "bg-cyan-400 text-slate-950 shadow-lg shadow-cyan-500/20" : "text-slate-400 hover:bg-white/5 hover:text-white"}`}>
+              <NavLink key={item.path} to={item.path} onClick={() => setSidebarOpen(false)} className={navLinkClass}>
                 <Icon size={19} /> {item.label}
               </NavLink>
             );
           })}
+
+          <p className="mb-3 mt-7 px-3 text-xs font-semibold uppercase tracking-[0.2em] text-slate-600">Account</p>
+
+          <NavLink to="/groomer/profile" onClick={() => setSidebarOpen(false)} className={navLinkClass}>
+            <UserRound size={19} /> My Profile
+          </NavLink>
+
+          <NavLink to="/groomer/settings" onClick={() => setSidebarOpen(false)} className={navLinkClass}>
+            <Settings size={19} /> Settings
+          </NavLink>
         </nav>
         <div className="border-t border-white/10 p-4">
           <button type="button" onClick={logout} className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-slate-400 transition hover:bg-red-500/10 hover:text-red-400"><LogOut size={19} /> Logout</button>
@@ -130,7 +164,12 @@ const GroomerLayout = () => {
           <DashboardSearch actions={searchableActions} placeholder="Search groomer panel..." noMatchToast="No matching groomer page found" />
           <div className="ml-auto flex items-center gap-2 sm:gap-3">
             <button type="button" onClick={() => navigate("/groomer/notifications")} className="relative rounded-xl border border-white/10 bg-slate-900 p-3 text-slate-400 transition hover:text-white" aria-label="Open notifications">
-              <Bell size={20} /><span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-red-500" />
+              <Bell size={20} />
+              {unreadNotifications > 0 && (
+                <span className="absolute -right-1 -top-1 flex min-h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-[11px] font-bold text-white">
+                  {unreadNotifications > 9 ? "9+" : unreadNotifications}
+                </span>
+              )}
             </button>
             <div className="relative" ref={dropdownRef}>
               <button type="button" onClick={() => setProfileOpen((value) => !value)} className="flex items-center gap-3 rounded-xl border border-white/10 bg-slate-900 px-3 py-2">
@@ -149,7 +188,9 @@ const GroomerLayout = () => {
                     <p className="font-semibold text-white">{groomerName}</p>
                     <p className="mt-1 truncate text-xs text-slate-500">{groomerEmail}</p>
                   </div>
-                  <button type="button" onClick={() => { setProfileOpen(false); navigate("/groomer/profile"); }} className="mt-2 flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-slate-400 hover:bg-white/5 hover:text-white"><Settings size={17} /> Profile Settings</button>
+                  <button type="button" onClick={() => { setProfileOpen(false); navigate("/groomer/profile"); }} className="mt-2 flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-slate-400 hover:bg-white/5 hover:text-white"><UserRound size={17} /> My Profile</button>
+                  <button type="button" onClick={() => { setProfileOpen(false); navigate("/groomer/settings"); }} className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-slate-400 hover:bg-white/5 hover:text-white"><Settings size={17} /> Settings</button>
+                  <div className="my-2 border-t border-white/10" />
                   <button type="button" onClick={logout} className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-red-400 hover:bg-red-500/10"><LogOut size={17} /> Logout</button>
                 </div>
               )}
