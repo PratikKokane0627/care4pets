@@ -4,12 +4,12 @@ import GroomingBooking from "../models/GroomingBooking.js";
 import GroomingService from "../models/GroomingService.js";
 import GroomerProfile from "../models/GroomerProfile.js";
 import Pet from "../models/Pet.js";
-// Notification code temporarily disabled.
-// import Notification from "../models/notificationModel.js";
+import Notification from "../models/notificationModel.js";
 import User from "../models/User.js";
 
 import asyncHandler from "../utils/asyncHandler.js";
 import ApiError from "../utils/ApiError.js";
+import { notifyAdmins } from "../utils/notificationHelpers.js";
 
 export const assignGroomer = asyncHandler(async (req, res) => {
   const { id } = req.params;
@@ -46,15 +46,22 @@ export const assignGroomer = asyncHandler(async (req, res) => {
 
   booking.groomerId = groomer._id;
   await booking.save();
-  // Notification code temporarily disabled.
-  // await Notification.create({
-  //   userId: groomer._id,
-  //   title: "Grooming Booking Assigned",
-  //   message: "A grooming booking has been assigned to you.",
-  //   type: "Grooming",
-  //   referenceId: booking._id,
-  //   referenceModel: "GroomingBooking",
-  // });
+  await Notification.create({
+    userId: groomer._id,
+    title: "Grooming Booking Assigned",
+    message: "A grooming booking has been assigned to you.",
+    type: "Grooming",
+    referenceId: booking._id,
+    referenceModel: "GroomingBooking",
+  });
+
+  await notifyAdmins({
+    title: "Groomer Assigned",
+    message: `${groomer.name} was assigned to a grooming booking.`,
+    type: "Grooming",
+    referenceId: booking._id,
+    referenceModel: "GroomingBooking",
+  });
 
   res.json({ success: true, message: "Groomer assigned successfully", booking });
 });
@@ -266,15 +273,33 @@ export const createGroomingBooking = asyncHandler(
         specialInstructions?.trim() || "",
     });
 
-    // Notification code temporarily disabled.
-    // await Notification.create({
-    //   userId: req.user._id,
-    //   title: "Grooming Booked",
-    //   message: "Your grooming service was booked successfully.",
-    //   type: "Grooming",
-    //   referenceId: booking._id,
-    //   referenceModel: "GroomingBooking",
-    // });
+    await Notification.create({
+      userId: req.user._id,
+      title: "Grooming Booked",
+      message: "Your grooming service was booked successfully.",
+      type: "Grooming",
+      referenceId: booking._id,
+      referenceModel: "GroomingBooking",
+    });
+
+    if (selectedGroomer) {
+      await Notification.create({
+        userId: selectedGroomer._id,
+        title: "New Grooming Booking",
+        message: `${pet.petName} has a new grooming booking assigned to you.`,
+        type: "Grooming",
+        referenceId: booking._id,
+        referenceModel: "GroomingBooking",
+      });
+    }
+
+    await notifyAdmins({
+      title: "New Grooming Booking",
+      message: `${req.user.name || "An owner"} booked ${service.serviceName} for ${pet.petName}.`,
+      type: "Grooming",
+      referenceId: booking._id,
+      referenceModel: "GroomingBooking",
+    });
 
     const populatedBooking =
       await GroomingBooking.findById(booking._id)
@@ -596,15 +621,14 @@ export const acceptGroomingBooking = asyncHandler(async (req, res) => {
 
   await booking.save();
 
-  // Notification code temporarily disabled.
-  // await Notification.create({
-  //   userId: booking.ownerId,
-  //   title: "Grooming Status Updated",
-  //   message: `Your grooming booking status is now ${booking.status}.`,
-  //   type: "Grooming",
-  //   referenceId: booking._id,
-  //   referenceModel: "GroomingBooking",
-  // });
+  await Notification.create({
+    userId: booking.ownerId,
+    title: "Grooming Accepted",
+    message: "Your grooming booking has been accepted.",
+    type: "Grooming",
+    referenceId: booking._id,
+    referenceModel: "GroomingBooking",
+  });
 
   const updatedBooking = await GroomingBooking.findById(booking._id)
     .populate("ownerId", "name email phone")
@@ -666,15 +690,14 @@ export const rejectGroomingBooking = asyncHandler(async (req, res) => {
 
   await booking.save();
 
-  // Notification code temporarily disabled.
-  // await Notification.create({
-  //   userId: booking.ownerId,
-  //   title: "Grooming Status Updated",
-  //   message: `Your grooming booking status is now ${booking.status}.`,
-  //   type: "Grooming",
-  //   referenceId: booking._id,
-  //   referenceModel: "GroomingBooking",
-  // });
+  await Notification.create({
+    userId: booking.ownerId,
+    title: "Grooming Rejected",
+    message: "Your grooming booking has been rejected.",
+    type: "Grooming",
+    referenceId: booking._id,
+    referenceModel: "GroomingBooking",
+  });
 
   const updatedBooking = await GroomingBooking.findById(
     booking._id
@@ -741,15 +764,14 @@ export const completeGroomingBooking = asyncHandler(async (req, res) => {
 
   await booking.save();
 
-  // Notification code temporarily disabled.
-  // await Notification.create({
-  //   userId: booking.ownerId,
-  //   title: "Grooming Status Updated",
-  //   message: `Your grooming booking status is now ${booking.status}.`,
-  //   type: "Grooming",
-  //   referenceId: booking._id,
-  //   referenceModel: "GroomingBooking",
-  // });
+  await Notification.create({
+    userId: booking.ownerId,
+    title: "Grooming Completed",
+    message: "Your grooming booking has been completed.",
+    type: "Grooming",
+    referenceId: booking._id,
+    referenceModel: "GroomingBooking",
+  });
 
   const updatedBooking = await GroomingBooking.findById(booking._id)
     .populate("ownerId", "name email phone")

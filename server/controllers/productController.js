@@ -5,6 +5,9 @@ import ApiError from "../utils/ApiError.js";
 import uploadToCloudinary from "../utils/uploadToCloudinary.js";
 import deleteUploadedImage from "../utils/deleteUploadedImage.js";
 import Category from "../models/Category.js";
+import { notifyAdmins } from "../utils/notificationHelpers.js";
+
+const LOW_STOCK_THRESHOLD = 5;
 
 export const createProduct = asyncHandler(async (req, res) => {
   const {
@@ -662,6 +665,15 @@ export const updateProductStock = asyncHandler(async (req, res) => {
   product.stock = stock;
 
   await product.save();
+
+  if (product.stock <= LOW_STOCK_THRESHOLD) {
+    await notifyAdmins({
+      title: "Low Product Stock",
+      message: `${product.productName} has only ${product.stock} item${product.stock === 1 ? "" : "s"} left in stock.`,
+      type: "Order",
+      referenceId: product._id,
+    });
+  }
 
   res.status(200).json({
     success: true,

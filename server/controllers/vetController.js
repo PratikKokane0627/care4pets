@@ -6,6 +6,7 @@ import User from "../models/User.js";
 import VetProfile from "../models/VetProfile.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import ApiError from "../utils/ApiError.js";
+import { notifyAdmins } from "../utils/notificationHelpers.js";
 
 const normalizeAvailability = (availability = []) => {
   if (!Array.isArray(availability)) {
@@ -159,6 +160,12 @@ export const applyAsVet = asyncHandler(async (req, res) => {
       availability: normalizeAvailability(availability),
       status: "pending",
       isActive: false,
+    });
+
+    await notifyAdmins({
+      title: "New Vet Application",
+      message: `${vetUser.name} applied as a veterinarian and is waiting for approval.`,
+      type: "System",
     });
 
     res.status(201).json({

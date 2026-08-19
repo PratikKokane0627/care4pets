@@ -1,6 +1,3 @@
-/*
-Notification code temporarily disabled.
-
 import mongoose from "mongoose";
 
 const notificationSchema = new mongoose.Schema(
@@ -9,55 +6,36 @@ const notificationSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
+      index: true,
     },
-
     title: {
       type: String,
       required: true,
       trim: true,
     },
-
     message: {
       type: String,
       required: true,
       trim: true,
     },
-
     type: {
       type: String,
-      enum: [
-        "Appointment",
-        "Grooming",
-        "Vaccination",
-        "Payment",
-        "Order",
-        "System",
-      ],
+      enum: ["Appointment", "Grooming", "Vaccination", "Payment", "Order", "System"],
       default: "System",
     },
-
     referenceId: {
       type: mongoose.Schema.Types.ObjectId,
       default: null,
     },
-
     referenceModel: {
       type: String,
-      enum: [
-        "Appointment",
-        "GroomingBooking",
-        "Vaccination",
-        "Order",
-        null,
-      ],
+      enum: ["Appointment", "GroomingBooking", "Vaccination", "Order", null],
       default: null,
     },
-
     isRead: {
       type: Boolean,
       default: false,
     },
-
     readAt: {
       type: Date,
       default: null,
@@ -68,16 +46,8 @@ const notificationSchema = new mongoose.Schema(
   }
 );
 
-notificationSchema.index({
-  userId: 1,
-  isRead: 1,
-  createdAt: -1,
-});
+notificationSchema.index({ userId: 1, isRead: 1, createdAt: -1 });
 
-const Notification = mongoose.model(
-  "Notification",
-  notificationSchema
-);
+const Notification = mongoose.model("Notification", notificationSchema);
 
 export default Notification;
-*/

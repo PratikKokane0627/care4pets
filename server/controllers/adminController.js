@@ -6,6 +6,7 @@ import GroomingBooking from "../models/GroomingBooking.js";
 import Order from "../models/Order.js";
 import Pet from "../models/Pet.js";
 import Product from "../models/Product.js";
+import Notification from "../models/notificationModel.js";
 import User from "../models/User.js";
 import Vaccination from "../models/Vaccination.js";
 import VetProfile from "../models/VetProfile.js";
@@ -448,6 +449,16 @@ const setVetApproval = (profileStatus, userStatus, message) =>
       }),
     ]);
 
+    await Notification.create({
+      userId: vet.userId,
+      title: profileStatus === "approved" ? "Vet Profile Approved" : "Vet Profile Rejected",
+      message:
+        profileStatus === "approved"
+          ? "Your veterinarian profile is approved and visible to owners."
+          : "Your veterinarian profile application was rejected by admin.",
+      type: "System",
+    });
+
     await vet.populate("userId", "name email phone status isVerified");
     res.json({ success: true, message, vet });
   });
@@ -526,6 +537,13 @@ export const updateGroomerStatus = asyncHandler(async (req, res) => {
     { returnDocument: "after", runValidators: true }
   );
   if (!groomer) throw new ApiError(404, "Groomer not found");
+
+  await Notification.create({
+    userId: groomer._id,
+    title: "Groomer Account Status Updated",
+    message: `Your groomer account status is now ${groomer.status}.`,
+    type: "System",
+  });
 
   res.json({ success: true, message: "Groomer status updated", groomer });
 });

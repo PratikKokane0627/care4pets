@@ -14,8 +14,8 @@ import categoryRoutes from "./routes/categoryRoutes.js";
 import groomingBookingRoutes from "./routes/groomingBookingRoutes.js";
 import groomingServiceRoutes from "./routes/groomingServiceRoutes.js";
 import groomerRoutes from "./routes/groomerRoutes.js";
-// Payment and notification routes are temporarily disabled.
-// import notificationRoutes from "./routes/notificationRoutes.js";
+// Payment routes are temporarily disabled.
+import notificationRoutes from "./routes/notificationRoutes.js";
 import orderRoutes from "./routes/orderRoutes.js";
 // import paymentRoutes from "./routes/paymentRoutes.js";
 import petRoutes from "./routes/petRoutes.js";
@@ -114,9 +114,9 @@ app.use("/api/cart", cartRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/reviews", reviewRoutes);
 app.use("/api/wishlist", wishlistRoutes);
-// Payment and notification APIs temporarily disabled.
+// Payment API temporarily disabled.
 // app.use("/api/payments", paymentRoutes);
-// app.use("/api/notifications", notificationRoutes);
+app.use("/api/notifications", notificationRoutes);
 app.use("/api/admin", adminRoutes);
 
 app.use((req, res, next) => {

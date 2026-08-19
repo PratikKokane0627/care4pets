@@ -3,8 +3,50 @@ import Order from "../models/Order.js";
 import Cart from "../models/Cart.js";
 import User from "../models/User.js";
 import Product from "../models/Product.js";
+import Notification from "../models/notificationModel.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import ApiError from "../utils/ApiError.js";
+import { notifyAdmins } from "../utils/notificationHelpers.js";
+
+const LOW_STOCK_THRESHOLD = 5;
+
+const getOrderProductSummary = (order) => {
+    const firstProductName =
+        order.items?.[0]?.productName || "your product";
+
+    return order.items?.length > 1
+        ? `${firstProductName} and ${order.items.length - 1} more item${order.items.length > 2 ? "s" : ""}`
+        : firstProductName;
+};
+
+const notifyOwnerOrder = (order, title, message, type = "Order") =>
+    Notification.create({
+        userId: order.userId?._id || order.userId,
+        title,
+        message,
+        type,
+        referenceId: order._id,
+        referenceModel: "Order",
+    });
+
+const notifyLowStockProducts = async (products = []) => {
+    const uniqueProducts = products.filter(
+        (product, index, rows) =>
+            product &&
+            rows.findIndex((row) => row?._id?.toString() === product._id.toString()) === index
+    );
+
+    await Promise.all(
+        uniqueProducts.map((product) =>
+            notifyAdmins({
+                title: "Low Product Stock",
+                message: `${product.productName} has only ${product.stock} item${product.stock === 1 ? "" : "s"} left in stock.`,
+                type: "Order",
+                referenceId: product._id,
+            })
+        )
+    );
+};
 
 export const placeOrder = asyncHandler(async (req, res) => {
     const userId = req.user._id;
@@ -91,6 +133,7 @@ export const placeOrder = asyncHandler(async (req, res) => {
     const session = await mongoose.startSession();
 
     let createdOrder;
+    const lowStockProducts = [];
 
     try {
         await session.withTransaction(async () => {
@@ -146,6 +189,14 @@ export const placeOrder = asyncHandler(async (req, res) => {
                         `Stock changed for ${item.productName}. Please try again`
                     );
                 }
+
+                if (updatedProduct.stock <= LOW_STOCK_THRESHOLD) {
+                    lowStockProducts.push({
+                        _id: updatedProduct._id,
+                        productName: updatedProduct.productName,
+                        stock: updatedProduct.stock,
+                    });
+                }
             }
 
             await Cart.updateOne(
@@ -167,6 +218,31 @@ export const placeOrder = asyncHandler(async (req, res) => {
     const order = await Order.findById(
         createdOrder[0]._id
     ).populate("userId", "name email");
+
+    const productSummary = getOrderProductSummary(order);
+
+    await notifyOwnerOrder(
+        order,
+        "Order Placed",
+        `Your order for ${productSummary} was placed successfully.`
+    );
+
+    await notifyOwnerOrder(
+        order,
+        "Payment Pending",
+        `Payment is pending for your order of ${productSummary}.`,
+        "Payment"
+    );
+
+    await notifyAdmins({
+        title: "New Shop Order",
+        message: `${order.userId?.name || "An owner"} placed an order for ${productSummary}.`,
+        type: "Order",
+        referenceId: order._id,
+        referenceModel: "Order",
+    });
+
+    await notifyLowStockProducts(lowStockProducts);
 
     res.status(201).json({
         success: true,
@@ -240,6 +316,7 @@ export const cancelOrder = asyncHandler(async (req, res) => {
     const session = await mongoose.startSession();
 
     let cancelledOrder;
+    let refundCompleted = false;
 
     try {
         await session.withTransaction(async () => {
@@ -290,6 +367,7 @@ export const cancelOrder = asyncHandler(async (req, res) => {
                 order.paymentStatus === "Paid"
             ) {
                 order.paymentStatus = "Refunded";
+                refundCompleted = true;
             }
 
             await order.save({ session });
@@ -298,6 +376,39 @@ export const cancelOrder = asyncHandler(async (req, res) => {
         });
     } finally {
         await session.endSession();
+    }
+
+    const productSummary = getOrderProductSummary(cancelledOrder);
+
+    await notifyOwnerOrder(
+        cancelledOrder,
+        "Order Cancelled",
+        `Your order for ${productSummary} has been cancelled.`
+    );
+
+    await notifyAdmins({
+        title: "Order Cancelled",
+        message: `${req.user.name || "An owner"} cancelled an order for ${productSummary}.`,
+        type: "Order",
+        referenceId: cancelledOrder._id,
+        referenceModel: "Order",
+    });
+
+    if (refundCompleted) {
+        await notifyOwnerOrder(
+            cancelledOrder,
+            "Refund Completed",
+            `Refund has been completed for your cancelled order of ${productSummary}.`,
+            "Payment"
+        );
+
+        await notifyAdmins({
+            title: "Refund Completed",
+            message: `Refund completed for cancelled order of ${productSummary}.`,
+            type: "Payment",
+            referenceId: cancelledOrder._id,
+            referenceModel: "Order",
+        });
     }
 
     res.status(200).json({
@@ -500,6 +611,8 @@ export const updateOrderStatus = asyncHandler(async (req, res) => {
     const session = await mongoose.startSession();
 
     let updatedOrder;
+    let refundCompleted = false;
+    let paymentBecamePaid = false;
 
     try {
         await session.withTransaction(async () => {
@@ -581,6 +694,7 @@ export const updateOrderStatus = asyncHandler(async (req, res) => {
                     order.paymentStatus === "Paid"
                 ) {
                     order.paymentStatus = "Refunded";
+                    refundCompleted = true;
                 }
             }
 
@@ -589,6 +703,7 @@ export const updateOrderStatus = asyncHandler(async (req, res) => {
 
                 if (order.paymentMethod === "COD") {
                     order.paymentStatus = "Paid";
+                    paymentBecamePaid = true;
                 }
             }
 
@@ -603,6 +718,59 @@ export const updateOrderStatus = asyncHandler(async (req, res) => {
     }
 
     await updatedOrder.populate("userId", "name email phone");
+
+    const productSummary = getOrderProductSummary(updatedOrder);
+    const ownerStatusMessages = {
+        Confirmed: ["Order Confirmed", `Your order for ${productSummary} has been confirmed.`],
+        Packed: ["Order Packed", `Your order for ${productSummary} has been packed.`],
+        Shipped: ["Order Shipped", `Your order for ${productSummary} has been shipped.`],
+        "Out for Delivery": ["Out for Delivery", `Your order for ${productSummary} is out for delivery.`],
+        Delivered: ["Order Delivered", `Your order for ${productSummary} has been delivered.`],
+        Cancelled: ["Order Cancelled", `Your order for ${productSummary} has been cancelled.`],
+    };
+
+    const [ownerTitle, ownerMessage] = ownerStatusMessages[orderStatus] || [
+        "Order Updated",
+        `Your order for ${productSummary} is now ${orderStatus}.`,
+    ];
+
+    await notifyOwnerOrder(updatedOrder, ownerTitle, ownerMessage);
+
+    if (paymentBecamePaid) {
+        await notifyOwnerOrder(
+            updatedOrder,
+            "Payment Paid",
+            `Payment is marked paid for your delivered order of ${productSummary}.`,
+            "Payment"
+        );
+    }
+
+    if (orderStatus === "Cancelled") {
+        await notifyAdmins({
+            title: "Order Cancelled",
+            message: `Admin cancelled an order for ${productSummary}.`,
+            type: "Order",
+            referenceId: updatedOrder._id,
+            referenceModel: "Order",
+        });
+    }
+
+    if (refundCompleted) {
+        await notifyOwnerOrder(
+            updatedOrder,
+            "Refund Completed",
+            `Refund has been completed for your cancelled order of ${productSummary}.`,
+            "Payment"
+        );
+
+        await notifyAdmins({
+            title: "Refund Completed",
+            message: `Refund completed for cancelled order of ${productSummary}.`,
+            type: "Payment",
+            referenceId: updatedOrder._id,
+            referenceModel: "Order",
+        });
+    }
 
     res.status(200).json({
         success: true,
