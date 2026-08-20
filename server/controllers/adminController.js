@@ -60,10 +60,77 @@ const dateRange = (query) => {
 const escapeRegex = (value) =>
   value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
+const startOfDay = (value = new Date()) => {
+  const date = new Date(value);
+  date.setHours(0, 0, 0, 0);
+  return date;
+};
+
+const getVaccinationReminderState = (vaccination, today = startOfDay()) => {
+  if (!vaccination.nextDueDate) {
+    return {
+      calculatedStatus: "completed",
+      dueLabel: "Vaccination completed",
+      reminderLabel: "Disabled",
+      canSendReminder: false,
+      reminderKind: "disabled",
+    };
+  }
+
+  const dueDate = startOfDay(vaccination.nextDueDate);
+  const daysUntilDue = Math.round(
+    (dueDate - today) / (1000 * 60 * 60 * 24)
+  );
+
+  if (daysUntilDue < 0) {
+    const overdueDays = Math.abs(daysUntilDue);
+    return {
+      calculatedStatus: "overdue",
+      dueLabel: `Overdue by ${overdueDays} day${overdueDays === 1 ? "" : "s"}`,
+      reminderLabel: "Send Overdue Reminder",
+      canSendReminder: true,
+      reminderKind: "overdue",
+      overdueDays,
+    };
+  }
+
+  if (daysUntilDue === 0) {
+    return {
+      calculatedStatus: "upcoming",
+      dueLabel: "Due today",
+      reminderLabel: "Send Due Reminder",
+      canSendReminder: true,
+      reminderKind: "due-today",
+      daysRemaining: 0,
+    };
+  }
+
+  if (daysUntilDue === 1) {
+    return {
+      calculatedStatus: "upcoming",
+      dueLabel: "Next dose due tomorrow",
+      reminderLabel: "Send Final Reminder",
+      canSendReminder: true,
+      reminderKind: "final",
+      daysRemaining: 1,
+    };
+  }
+
+  return {
+    calculatedStatus: "upcoming",
+    dueLabel: `Next dose due in ${daysUntilDue} days`,
+    reminderLabel: daysUntilDue <= 7 ? "Send Reminder" : "Send Later",
+    canSendReminder: daysUntilDue <= 7,
+    reminderKind: daysUntilDue <= 7 ? "first" : "send-later",
+    daysRemaining: daysUntilDue,
+  };
+};
+
 export const getDashboard = asyncHandler(async (req, res) => {
   const [
     totalUsers,
     activeUsers,
+    totalOwners,
     totalPets,
     pendingVets,
     totalVets,
@@ -75,9 +142,15 @@ export const getDashboard = asyncHandler(async (req, res) => {
     revenue,
     recentUsers,
     recentAppointments,
+    recentGroomingBookings,
+    recentOrders,
+    lowStockProducts,
+    vaccinationRows,
+    recentNotifications,
   ] = await Promise.all([
     User.countDocuments(),
     User.countDocuments({ status: "active" }),
+    User.countDocuments({ role: "owner" }),
     Pet.countDocuments({ isActive: true }),
     VetProfile.countDocuments({ status: "pending" }),
     User.countDocuments({ role: "vet" }),
@@ -107,12 +180,57 @@ export const getDashboard = asyncHandler(async (req, res) => {
       })
       .sort({ createdAt: -1 })
       .limit(5),
+    GroomingBooking.find({ isActive: true })
+      .populate("ownerId", "name email")
+      .populate("petId", "petName")
+      .populate("serviceId", "serviceName price")
+      .populate("groomerId", "name email")
+      .sort({ createdAt: -1 })
+      .limit(5),
+    Order.find()
+      .populate("userId", "name email")
+      .sort({ createdAt: -1 })
+      .limit(5),
+    Product.find({ isActive: true, stock: { $lte: 5 } })
+      .select("productName stock price discountPrice")
+      .sort({ stock: 1, updatedAt: -1 })
+      .limit(5),
+    Vaccination.find({ isActive: true })
+      .populate("ownerId", "name email")
+      .populate("petId", "petName")
+      .sort({ nextDueDate: 1 })
+      .limit(100),
+    Notification.find()
+      .populate("userId", "name email role")
+      .sort({ createdAt: -1 })
+      .limit(6)
+      .lean(),
   ]);
+
+  const today = startOfDay();
+  const vaccinationSummary = vaccinationRows.reduce(
+    (summary, vaccination) => {
+      const reminder = getVaccinationReminderState(vaccination, today);
+      summary.total += 1;
+      if (reminder.calculatedStatus === "upcoming") summary.upcoming += 1;
+      if (reminder.calculatedStatus === "overdue") summary.overdue += 1;
+      if (reminder.canSendReminder) summary.remindersDue += 1;
+      return summary;
+    },
+    { total: 0, upcoming: 0, overdue: 0, remindersDue: 0 }
+  );
+
+  const paymentActivity = {
+    paid: await Order.countDocuments({ paymentStatus: { $in: ["Paid", "paid"] } }),
+    pending: await Order.countDocuments({ paymentStatus: { $in: ["Pending", "pending"] } }),
+    failed: await Order.countDocuments({ paymentStatus: { $in: ["Failed", "failed"] } }),
+    refunded: await Order.countDocuments({ paymentStatus: { $in: ["Refunded", "refunded"] } }),
+  };
 
   res.json({
     success: true,
     dashboard: {
-      users: { total: totalUsers, active: activeUsers },
+      users: { total: totalUsers, active: activeUsers, owners: totalOwners },
       vets: { total: totalVets, pendingApproval: pendingVets },
       groomers: totalGroomers,
       pets: totalPets,
@@ -123,6 +241,13 @@ export const getDashboard = asyncHandler(async (req, res) => {
       revenue: revenue[0]?.total || 0,
       recentUsers,
       recentAppointments,
+      recentGroomingBookings,
+      recentOrders,
+      paymentActivity,
+      lowStockProducts,
+      vaccinationSummary,
+      recentNotifications,
+      complaintSummary: null,
     },
   });
 });
@@ -177,22 +302,39 @@ export const getPetById = asyncHandler(async (req, res) => {
 export const getVaccinations = asyncHandler(async (req, res) => {
   const { page, limit, skip } = parsePagination(req.query);
   const filter = { isActive: true };
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const andFilters = [];
+  const today = startOfDay();
 
   if (req.query.status === "upcoming") {
     filter.nextDueDate = { $gte: today };
-    filter.status = { $ne: "completed" };
   } else if (req.query.status === "overdue") {
     filter.nextDueDate = { $lt: today };
-    filter.status = { $ne: "completed" };
+  } else if (req.query.status === "completed") {
+    andFilters.push({
+      $or: [{ nextDueDate: { $exists: false } }, { nextDueDate: null }],
+    });
   } else if (req.query.status) {
     filter.status = req.query.status;
   }
 
   if (req.query.search?.trim()) {
     const search = new RegExp(escapeRegex(req.query.search.trim()), "i");
-    filter.vaccineName = search;
+    const [matchingPets, matchingOwners] = await Promise.all([
+      Pet.find({ petName: search }).select("_id").lean(),
+      User.find({ name: search }).select("_id").lean(),
+    ]);
+
+    andFilters.push({
+      $or: [
+        { vaccineName: search },
+        { petId: { $in: matchingPets.map((pet) => pet._id) } },
+        { ownerId: { $in: matchingOwners.map((owner) => owner._id) } },
+      ],
+    });
+  }
+
+  if (andFilters.length) {
+    filter.$and = andFilters;
   }
 
   const [vaccinations, total] = await Promise.all([
@@ -208,17 +350,51 @@ export const getVaccinations = asyncHandler(async (req, res) => {
   res.json({
     success: true,
     vaccinations: vaccinations.map((item) => {
-      const due = new Date(item.nextDueDate);
-      const days = Math.ceil((due - today) / (1000 * 60 * 60 * 24));
+      const reminder = getVaccinationReminderState(item, today);
       return {
         ...item.toObject(),
-        calculatedStatus:
-          item.status === "completed" ? "completed" : days < 0 ? "overdue" : "upcoming",
-        daysRemaining: days >= 0 ? days : undefined,
-        overdueDays: days < 0 ? Math.abs(days) : undefined,
+        vaccinationCompleted: Boolean(item.vaccinationDate),
+        ...reminder,
       };
     }),
     pagination: pagination(page, limit, total),
+  });
+});
+
+export const sendVaccinationReminder = asyncHandler(async (req, res) => {
+  assertObjectId(req.params.id, "vaccination");
+
+  const vaccination = await Vaccination.findOne({
+    _id: req.params.id,
+    isActive: true,
+  })
+    .populate("ownerId", "name email")
+    .populate("petId", "petName")
+    .lean();
+
+  if (!vaccination) {
+    throw new ApiError(404, "Vaccination record not found");
+  }
+
+  const reminder = getVaccinationReminderState(vaccination);
+
+  if (!reminder.canSendReminder) {
+    throw new ApiError(400, "Reminder is not due yet");
+  }
+
+  await Notification.create({
+    userId: vaccination.ownerId._id || vaccination.ownerId,
+    title: "Vaccination Reminder",
+    message: `${vaccination.petId?.petName || "Your pet"} needs ${vaccination.vaccineName}. ${reminder.dueLabel}.`,
+    type: "Vaccination",
+    referenceId: vaccination._id,
+    referenceModel: "Vaccination",
+  });
+
+  res.json({
+    success: true,
+    message: "Vaccination reminder sent successfully",
+    reminder,
   });
 });
 

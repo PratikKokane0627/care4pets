@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 
 import Appointment from "../models/Appointment.js";
+import Notification from "../models/notificationModel.js";
 import Pet from "../models/Pet.js";
 import Review from "../models/Review.js";
 import Vaccination from "../models/Vaccination.js";
@@ -103,6 +104,8 @@ export const getVetDashboard = asyncHandler(async (req, res) => {
     totalPatientRows,
     totalPrescriptions,
     paidRevenue,
+    recentReviews,
+    unreadNotifications,
   ] = await Promise.all([
     Appointment.aggregate([
       { $match: base },
@@ -214,6 +217,15 @@ export const getVetDashboard = asyncHandler(async (req, res) => {
       { $match: { ...base, paymentStatus: "paid" } },
       { $group: { _id: null, total: { $sum: "$consultationFee" } } },
     ]),
+    Review.find({ vetId: vet._id, reviewType: "vet", isActive: true })
+      .populate("userId", "name email profileImage")
+      .sort({ createdAt: -1 })
+      .limit(5)
+      .lean(),
+    Notification.countDocuments({
+      userId: req.user._id,
+      isRead: false,
+    }),
   ]);
 
   const statsByStatus = statusCounts.reduce(
@@ -247,8 +259,8 @@ export const getVetDashboard = asyncHandler(async (req, res) => {
       recentPatients: patientRows,
       recentCompletedAppointments,
       weeklyAppointments,
-      recentReviews: [],
-      unreadNotifications: 0,
+      recentReviews,
+      unreadNotifications,
     },
   });
 });

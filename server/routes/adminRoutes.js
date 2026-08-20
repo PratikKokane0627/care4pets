@@ -18,6 +18,7 @@ import {
   getVaccinations,
   getVets,
   rejectVet,
+  sendVaccinationReminder,
   updateAppointmentAdmin,
   updateGroomingBookingAdmin,
   updateGroomerStatus,
@@ -34,6 +35,7 @@ router.get("/dashboard", getDashboard);
 router.get("/pets", getPets);
 router.get("/pets/:id", getPetById);
 router.get("/vaccinations", getVaccinations);
+router.post("/vaccinations/:id/reminder", sendVaccinationReminder);
 router.get("/users", getUsers);
 router.get("/users/:id", getUserById);
 router.patch("/users/:id/status", updateUserStatus);

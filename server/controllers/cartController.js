@@ -305,6 +305,7 @@ export const getCartSummary = asyncHandler(async (req, res) => {
       message: "Cart is empty",
       summary: {
         uniqueProducts: 0,
+        totalProducts: 0,
         totalItems: 0,
         subtotal: 0,
         availableItems: 0,
@@ -315,6 +316,7 @@ export const getCartSummary = asyncHandler(async (req, res) => {
   }
 
   let uniqueProducts = 0;
+  let totalProducts = 0;
   let totalItems = 0;
   let subtotal = 0;
   let availableItems = 0;
@@ -325,7 +327,6 @@ export const getCartSummary = asyncHandler(async (req, res) => {
     const product = item.productId;
 
     uniqueProducts += 1;
-    totalItems += item.quantity;
 
     if (!product || !product.isActive) {
       unavailableItems += 1;
@@ -338,6 +339,8 @@ export const getCartSummary = asyncHandler(async (req, res) => {
     }
 
     availableItems += 1;
+    totalProducts += 1;
+    totalItems += item.quantity;
     subtotal += item.totalPrice;
   });
 
@@ -346,6 +349,7 @@ export const getCartSummary = asyncHandler(async (req, res) => {
     message: "Cart summary fetched successfully",
     summary: {
       uniqueProducts,
+      totalProducts,
       totalItems,
       subtotal,
       availableItems,
