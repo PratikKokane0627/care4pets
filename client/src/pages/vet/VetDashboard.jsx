@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowRight, CalendarClock, CalendarDays, ChevronRight, ClipboardList, IndianRupee, PawPrint, RefreshCw, Star, Stethoscope, UserCheck, UserRoundCog } from "lucide-react";
+import { ArrowRight, Bell, CalendarClock, CalendarDays, ChevronRight, ClipboardList, IndianRupee, PawPrint, RefreshCw, Star, Stethoscope, UserCheck, UserRoundCog } from "lucide-react";
 import { Link } from "react-router-dom";
 import toast from "react-hot-toast";
 
@@ -10,6 +10,7 @@ import VetLoader from "../../components/vet/VetLoader";
 import VetPageHeader from "../../components/vet/VetPageHeader";
 import VetStatCard from "../../components/vet/VetStatCard";
 import { getVetDashboard } from "../../services/vetApi";
+import { getNotifications } from "../../services/notificationApi";
 import { formatDate } from "../../utils/dateUtils";
 import { getId, money, ownerName, petName } from "../../utils/appointmentUtils";
 
@@ -72,6 +73,7 @@ const quickActions = [
 
 const VetDashboard = () => {
   const [data, setData] = useState(initialData);
+  const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
@@ -84,8 +86,12 @@ const VetDashboard = () => {
         setLoading(true);
       }
       setError("");
-      const response = await getVetDashboard();
-      setData(response.data.data || initialData);
+      const [dashboardRes, notificationsRes] = await Promise.all([
+        getVetDashboard(),
+        getNotifications({ limit: 4 }).catch(() => ({ data: { notifications: [] } })),
+      ]);
+      setData(dashboardRes.data.data || initialData);
+      setNotifications(notificationsRes.data.notifications || []);
       if (silent) toast.success("Dashboard refreshed");
     } catch (err) {
       const message = err.response?.data?.message || "Could not load veterinarian dashboard";
@@ -196,6 +202,55 @@ const VetDashboard = () => {
             </div>
             <div className="rounded-xl border border-white/10 bg-slate-950 p-4"><p className="text-sm text-slate-400">Unread notifications</p><p className="mt-2 text-lg font-bold text-white">{data.unreadNotifications || 0}</p></div>
           </div>
+        </Panel>
+      </section>
+
+      <section className="mt-7 grid gap-6 xl:grid-cols-3">
+        <Panel title="Upcoming Appointments" description="Accepted and pending visits ahead">
+          {data.upcomingAppointments.length ? (
+            <div className="space-y-3">
+              {data.upcomingAppointments.slice(0, 4).map((appointment) => (
+                <Link key={getId(appointment)} to={`/vet/appointments/${getId(appointment)}`} className="block rounded-xl border border-white/10 bg-slate-950 p-4 transition hover:border-cyan-300/30">
+                  <p className="font-semibold text-white">{petName(appointment.petId)}</p>
+                  <p className="mt-1 text-sm text-slate-400">{formatDate(appointment.appointmentDate)} at {appointment.appointmentTime}</p>
+                  <p className="mt-2 text-xs font-semibold capitalize text-cyan-300">{appointment.status}</p>
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <VetEmptyState title="No upcoming visits" />
+          )}
+        </Panel>
+
+        <Panel title="Recent Reviews" description="Latest owner feedback">
+          {data.recentReviews.length ? (
+            <div className="space-y-3">
+              {data.recentReviews.slice(0, 4).map((review) => (
+                <Link key={getId(review)} to="/vet/reviews" className="block rounded-xl border border-white/10 bg-slate-950 p-4 transition hover:border-cyan-300/30">
+                  <p className="flex items-center gap-2 font-semibold text-white"><Star size={16} className="text-amber-300" /> {review.rating || 0}.0</p>
+                  <p className="mt-1 line-clamp-2 text-sm text-slate-400">{review.comment}</p>
+                  <p className="mt-2 text-xs text-slate-500">{ownerName(review.userId)}</p>
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <VetEmptyState title="No reviews yet" />
+          )}
+        </Panel>
+
+        <Panel title="Notifications" description="Latest practice alerts">
+          {notifications.length ? (
+            <div className="space-y-3">
+              {notifications.slice(0, 4).map((item) => (
+                <Link key={getId(item)} to="/vet/notifications" className="block rounded-xl border border-white/10 bg-slate-950 p-4 transition hover:border-cyan-300/30">
+                  <p className="flex items-center gap-2 font-semibold text-white"><Bell size={16} className="text-cyan-300" /> {item.title}</p>
+                  <p className="mt-1 line-clamp-2 text-sm text-slate-400">{item.message}</p>
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <VetEmptyState title="No notifications" />
+          )}
         </Panel>
       </section>
 

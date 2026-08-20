@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import toast from "react-hot-toast";
-import { ArrowRight, CalendarDays, CheckCircle2, ChevronRight, Clock, IndianRupee, PawPrint, RefreshCw, Scissors, Star, Users } from "lucide-react";
+import { ArrowRight, Bell, CalendarDays, CheckCircle2, ChevronRight, Clock, IndianRupee, PawPrint, RefreshCw, Scissors, Star, Users } from "lucide-react";
 
 import GroomerEmptyState from "../../components/groomer/GroomerEmptyState";
 import GroomerErrorState from "../../components/groomer/GroomerErrorState";
@@ -10,6 +10,7 @@ import GroomerPageHeader from "../../components/groomer/GroomerPageHeader";
 import GroomerScheduleCard from "../../components/groomer/GroomerScheduleCard";
 import GroomerStatCard from "../../components/groomer/GroomerStatCard";
 import { getGroomerBookings, getGroomerDashboard, getGroomerReviews, getMyGroomerProfile } from "../../services/groomerApi";
+import { getNotifications } from "../../services/notificationApi";
 import { formatDate, isToday, money, personName, petName, serviceName, uniqueById } from "../../utils/groomingUtils";
 
 const Panel = ({ title, description, children, action }) => (
@@ -42,7 +43,7 @@ const reviewSummaryFrom = (payload = {}) => {
 };
 
 const GroomerDashboard = () => {
-  const [data, setData] = useState({ stats: {}, recentBookings: [], profile: null, bookings: [], reviewSummary: { averageRating: 0, totalReviews: 0 } });
+  const [data, setData] = useState({ stats: {}, recentBookings: [], profile: null, bookings: [], notifications: [], reviewSummary: { averageRating: 0, totalReviews: 0 } });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
@@ -52,17 +53,19 @@ const GroomerDashboard = () => {
       if (silent) setRefreshing(true);
       else setLoading(true);
       setError("");
-      const [dashboardRes, profileRes, bookingsRes, reviewsRes] = await Promise.all([
+      const [dashboardRes, profileRes, bookingsRes, reviewsRes, notificationsRes] = await Promise.all([
         getGroomerDashboard(),
         getMyGroomerProfile(),
         getGroomerBookings({ limit: 50 }),
         getGroomerReviews().catch(() => ({ data: {} })),
+        getNotifications({ limit: 4 }).catch(() => ({ data: { notifications: [] } })),
       ]);
       setData({
         stats: dashboardRes.data.stats || {},
         recentBookings: dashboardRes.data.recentBookings || [],
         profile: profileRes.data.profile,
         bookings: bookingsRes.data.bookings || [],
+        notifications: notificationsRes.data.notifications || [],
         reviewSummary: reviewSummaryFrom(reviewsRes.data),
       });
       if (silent) toast.success("Dashboard refreshed");
@@ -83,6 +86,12 @@ const GroomerDashboard = () => {
   const reviewSummary = data.reviewSummary || {};
   const bookings = data.bookings;
   const todayBookings = bookings.filter((booking) => isToday(booking.bookingDate));
+  const upcomingBookings = bookings
+    .filter((booking) => {
+      const date = new Date(booking.bookingDate);
+      return !Number.isNaN(date.getTime()) && date >= new Date() && !isToday(booking.bookingDate);
+    })
+    .sort((a, b) => new Date(a.bookingDate) - new Date(b.bookingDate));
   const pendingBookings = bookings.filter((booking) => booking.status === "pending");
   const completedBookings = bookings.filter((booking) => booking.status === "completed");
   const customers = uniqueById(bookings, (booking) => booking.ownerId);
@@ -157,6 +166,55 @@ const GroomerDashboard = () => {
               <p className="mt-1 text-sm text-slate-300">{reviewSummary.totalReviews || 0} total reviews</p>
             </Link>
           </div>
+        </Panel>
+      </section>
+
+      <section className="mt-7 grid gap-6 xl:grid-cols-3">
+        <Panel title="Upcoming Schedule" description="Next assigned grooming visits">
+          {upcomingBookings.length ? (
+            <div className="space-y-3">
+              {upcomingBookings.slice(0, 4).map((booking) => (
+                <Link key={booking._id} to={`/groomer/bookings/${booking._id}`} className="block rounded-xl border border-white/10 bg-slate-950 p-4 transition hover:border-cyan-300/30">
+                  <p className="font-semibold text-white">{serviceName(booking.serviceId)}</p>
+                  <p className="mt-1 text-sm text-slate-400">{formatDate(booking.bookingDate)} at {booking.bookingTime}</p>
+                  <p className="mt-2 text-xs text-cyan-300">{petName(booking.petId)} · {personName(booking.ownerId)}</p>
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <GroomerEmptyState title="No upcoming bookings" />
+          )}
+        </Panel>
+
+        <Panel title="Available Jobs" description="Pending requests ready for action">
+          {pendingBookings.length ? (
+            <div className="space-y-3">
+              {pendingBookings.slice(0, 4).map((booking) => (
+                <Link key={booking._id} to={`/groomer/bookings/${booking._id}`} className="block rounded-xl border border-white/10 bg-slate-950 p-4 transition hover:border-cyan-300/30">
+                  <p className="font-semibold text-white">{serviceName(booking.serviceId)}</p>
+                  <p className="mt-1 text-sm text-slate-400">{formatDate(booking.bookingDate)} at {booking.bookingTime}</p>
+                  <p className="mt-2 text-xs text-amber-300">Waiting for acceptance</p>
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <GroomerEmptyState title="No available jobs" />
+          )}
+        </Panel>
+
+        <Panel title="Notifications" description="Latest grooming alerts">
+          {data.notifications.length ? (
+            <div className="space-y-3">
+              {data.notifications.slice(0, 4).map((item) => (
+                <Link key={item._id} to="/groomer/notifications" className="block rounded-xl border border-white/10 bg-slate-950 p-4 transition hover:border-cyan-300/30">
+                  <p className="flex items-center gap-2 font-semibold text-white"><Bell size={16} className="text-cyan-300" /> {item.title}</p>
+                  <p className="mt-1 line-clamp-2 text-sm text-slate-400">{item.message}</p>
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <GroomerEmptyState title="No notifications" />
+          )}
         </Panel>
       </section>
 

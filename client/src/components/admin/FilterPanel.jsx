@@ -1,8 +1,8 @@
 import { Panel } from "../../pages/admin/adminShared";
 
-const FilterPanel = ({ children }) => (
+const FilterPanel = ({ children, className = "grid gap-3 md:grid-cols-4" }) => (
   <Panel className="mb-5">
-    <div className="grid gap-3 md:grid-cols-4">{children}</div>
+    <div className={className}>{children}</div>
   </Panel>
 );
 

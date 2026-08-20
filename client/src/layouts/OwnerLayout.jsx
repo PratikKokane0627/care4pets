@@ -193,7 +193,11 @@ const OwnerLayout = () => {
         ]);
 
         setShopCounts({
-          cart: cartRes.data.summary?.totalItems || 0,
+          cart:
+            cartRes.data.summary?.totalProducts ??
+            cartRes.data.summary?.availableItems ??
+            cartRes.data.summary?.totalItems ??
+            0,
           wishlist: wishlistRes.data.summary?.totalItems || 0,
         });
       } catch {

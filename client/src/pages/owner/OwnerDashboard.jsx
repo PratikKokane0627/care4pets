@@ -1,11 +1,14 @@
 import {
   Activity,
+  Bell,
   CalendarDays,
   ChevronRight,
   Clock,
+  Heart,
   HeartPulse,
   PawPrint,
   Plus,
+  ShoppingCart,
   ShieldCheck,
   ShoppingBag,
   Scissors,
@@ -158,6 +161,8 @@ const OwnerDashboard = () => {
   const [vaccinations, setVaccinations] = useState([]);
   const [groomingBookings, setGroomingBookings] = useState([]);
   const [orders, setOrders] = useState([]);
+  const [notifications, setNotifications] = useState([]);
+  const [shopSummary, setShopSummary] = useState({ cart: 0, wishlist: 0 });
   const [upcomingVaccinationReminders, setUpcomingVaccinationReminders] = useState([]);
   const [overdueVaccinationReminders, setOverdueVaccinationReminders] = useState([]);
 
@@ -168,6 +173,9 @@ const OwnerDashboard = () => {
       vaccinationsRes,
       groomingBookingsRes,
       ordersRes,
+      notificationsRes,
+      cartSummaryRes,
+      wishlistSummaryRes,
       upcomingVaccinationsRes,
       overdueVaccinationsRes,
     ] = await Promise.all([
@@ -176,6 +184,9 @@ const OwnerDashboard = () => {
       api.get("/vaccinations").catch(() => ({ data: [] })),
       api.get("/grooming-bookings").catch(() => ({ data: [] })),
       api.get("/orders/my-orders").catch(() => ({ data: [] })),
+      api.get("/notifications", { params: { limit: 4 } }).catch(() => ({ data: [] })),
+      api.get("/cart/summary").catch(() => ({ data: { summary: {} } })),
+      api.get("/wishlist/summary").catch(() => ({ data: { summary: {} } })),
       api.get("/vaccinations/upcoming").catch(() => ({ data: [] })),
       api.get("/vaccinations/overdue").catch(() => ({ data: [] })),
     ]);
@@ -185,6 +196,15 @@ const OwnerDashboard = () => {
     setVaccinations(toArray(vaccinationsRes.data, ["vaccinations"]));
     setGroomingBookings(toArray(groomingBookingsRes.data, ["bookings"]));
     setOrders(toArray(ordersRes.data, ["orders"]));
+    setNotifications(toArray(notificationsRes.data, ["notifications"]));
+    setShopSummary({
+      cart:
+        cartSummaryRes.data.summary?.totalProducts ??
+        cartSummaryRes.data.summary?.availableItems ??
+        cartSummaryRes.data.summary?.totalItems ??
+        0,
+      wishlist: wishlistSummaryRes.data.summary?.totalItems || 0,
+    });
     setUpcomingVaccinationReminders(
       toArray(upcomingVaccinationsRes.data, ["vaccinations"])
     );
@@ -194,6 +214,13 @@ const OwnerDashboard = () => {
   }, "owner-dashboard");
 
   const ownerName = storedUser.name?.split(" ")[0] || "Pet Owner";
+  const latestOrders = [...orders].sort(
+    (a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0)
+  );
+  const orderTitle = (order) =>
+    order.items?.[0]?.productName ||
+    order.productName ||
+    "Shop order";
   const upcomingAppointments = appointments.filter((item) =>
     ["pending", "accepted", "confirmed"].includes(
       String(item.status).toLowerCase()
@@ -608,6 +635,63 @@ const OwnerDashboard = () => {
               })}
             </div>
           )}
+        </div>
+      </section>
+
+      <section className="mt-6 grid gap-6 xl:grid-cols-[1.35fr_1fr]">
+        <div className="rounded-2xl border border-white/10 bg-slate-900 p-5">
+          <SectionHeading
+            title="Recent Orders"
+            description="Latest pet shop purchases"
+            buttonText="View all"
+            onClick={() => navigate("/owner/orders")}
+          />
+
+          {latestOrders.length === 0 ? (
+            <EmptyState title="No orders yet" description="Your shop orders will appear here." />
+          ) : (
+            <div className="grid gap-3 md:grid-cols-2">
+              {latestOrders.slice(0, 4).map((order) => (
+                <article key={getId(order)} className="rounded-xl border border-white/10 bg-slate-950/60 p-4 transition hover:-translate-y-1 hover:border-cyan-400/40">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-semibold text-white">{orderTitle(order)}</p>
+                      <p className="mt-1 text-sm text-slate-400">{formatDate(order.createdAt)}</p>
+                    </div>
+                    <span className={`rounded-full px-3 py-1 text-xs font-semibold ${statusClass(order.orderStatus)}`}>
+                      {formatStatus(order.orderStatus || "Pending")}
+                    </span>
+                  </div>
+                  <p className="mt-3 text-sm text-slate-400">
+                    {order.totalItems || order.items?.length || 0} items · Rs. {Number(order.totalAmount || 0).toLocaleString("en-IN")}
+                  </p>
+                </article>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="rounded-2xl border border-white/10 bg-slate-900 p-5">
+          <SectionHeading title="Shop & Notifications" description="Live account snapshot" />
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+            <button type="button" onClick={() => navigate("/owner/cart")} className="flex items-center justify-between rounded-xl border border-white/10 bg-slate-950/60 p-4 text-left transition hover:border-cyan-400/40">
+              <span className="flex items-center gap-3 text-slate-300"><ShoppingCart size={19} className="text-cyan-300" /> Cart items</span>
+              <span className="font-bold text-white">{shopSummary.cart}</span>
+            </button>
+            <button type="button" onClick={() => navigate("/owner/shop/wishlist")} className="flex items-center justify-between rounded-xl border border-white/10 bg-slate-950/60 p-4 text-left transition hover:border-cyan-400/40">
+              <span className="flex items-center gap-3 text-slate-300"><Heart size={19} className="text-cyan-300" /> Wishlist</span>
+              <span className="font-bold text-white">{shopSummary.wishlist}</span>
+            </button>
+          </div>
+          <div className="mt-4 space-y-3">
+            {notifications.slice(0, 3).map((item) => (
+              <button key={getId(item)} type="button" onClick={() => navigate("/owner/notifications")} className="block w-full rounded-xl border border-white/10 bg-slate-950/60 p-4 text-left transition hover:border-cyan-400/40">
+                <p className="flex items-center gap-2 text-sm font-semibold text-white"><Bell size={16} className="text-cyan-300" /> {item.title}</p>
+                <p className="mt-1 line-clamp-2 text-xs text-slate-500">{item.message}</p>
+              </button>
+            ))}
+            {!notifications.length && <EmptyState title="No notifications" description="Alerts will appear here." />}
+          </div>
         </div>
       </section>
 

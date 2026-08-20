@@ -1,12 +1,18 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import {
+  AlertTriangle,
+  Bell,
   CalendarDays,
+  CreditCard,
+  Package,
   PawPrint,
   RefreshCw,
   Scissors,
   ShieldCheck,
   ShoppingBag,
   Stethoscope,
+  Syringe,
   UserCheck,
   Users,
 } from "lucide-react";
@@ -20,6 +26,7 @@ import StatusBadge from "../../components/admin/StatusBadge";
 const initialDashboard = {
   totalUsers: 0,
   activeUsers: 0,
+  totalOwners: 0,
   totalPets: 0,
   totalVets: 0,
   pendingVets: 0,
@@ -31,6 +38,13 @@ const initialDashboard = {
   revenue: 0,
   recentUsers: [],
   recentAppointments: [],
+  recentGroomingBookings: [],
+  recentOrders: [],
+  paymentActivity: {},
+  lowStockProducts: [],
+  vaccinationSummary: {},
+  recentNotifications: [],
+  complaintSummary: null,
 };
 
 const AdminDashboard = () => {
@@ -71,6 +85,12 @@ const AdminDashboard = () => {
             stats.users?.active ??
             stats.activeUsers ??
             stats.activeUserCount ??
+            0,
+
+          totalOwners:
+            stats.users?.owners ??
+            stats.totalOwners ??
+            stats.owners ??
             0,
 
           totalVets:
@@ -131,6 +151,41 @@ const AdminDashboard = () => {
             responseData.recentAppointments ||
             stats.recentAppointments ||
             [],
+
+          recentGroomingBookings:
+            responseData.recentGroomingBookings ||
+            stats.recentGroomingBookings ||
+            [],
+
+          recentOrders:
+            responseData.recentOrders ||
+            stats.recentOrders ||
+            [],
+
+          paymentActivity:
+            responseData.paymentActivity ||
+            stats.paymentActivity ||
+            {},
+
+          lowStockProducts:
+            responseData.lowStockProducts ||
+            stats.lowStockProducts ||
+            [],
+
+          vaccinationSummary:
+            responseData.vaccinationSummary ||
+            stats.vaccinationSummary ||
+            {},
+
+          recentNotifications:
+            responseData.recentNotifications ||
+            stats.recentNotifications ||
+            [],
+
+          complaintSummary:
+            responseData.complaintSummary ||
+            stats.complaintSummary ||
+            null,
         });
 
         if (silent) {
@@ -157,7 +212,7 @@ const AdminDashboard = () => {
 
   const userDistribution = useMemo(() => {
     const maximum = Math.max(
-      dashboard.totalUsers,
+      dashboard.totalOwners,
       dashboard.totalVets,
       dashboard.totalGroomers,
       1
@@ -166,8 +221,8 @@ const AdminDashboard = () => {
     return [
       {
         label: "Pet owners",
-        value: dashboard.totalUsers,
-        width: (dashboard.totalUsers / maximum) * 100,
+        value: dashboard.totalOwners,
+        width: (dashboard.totalOwners / maximum) * 100,
         color: "bg-cyan-400",
       },
       {
@@ -416,9 +471,169 @@ const AdminDashboard = () => {
           appointments={dashboard.recentAppointments}
         />
       </section>
+
+      <section className="mt-7 grid gap-6 xl:grid-cols-3">
+        <MiniPanel
+          title="Recent Grooming"
+          description="Latest grooming bookings"
+          icon={Scissors}
+          rows={dashboard.recentGroomingBookings}
+          empty="No grooming bookings found."
+          render={(booking) => ({
+            key: booking._id,
+            title: booking.serviceId?.serviceName || "Grooming service",
+            meta: `${booking.petId?.petName || "Pet"} · ${booking.ownerId?.name || "Owner"}`,
+            badge: booking.status,
+          })}
+        />
+        <MiniPanel
+          title="Recent Orders"
+          description="Latest shop orders"
+          icon={Package}
+          rows={dashboard.recentOrders}
+          empty="No recent orders found."
+          render={(order) => ({
+            key: order._id,
+            title: order.items?.[0]?.productName || "Shop order",
+            meta: `${order.userId?.name || "Customer"} · Rs. ${Number(order.totalAmount || 0).toLocaleString("en-IN")}`,
+            badge: order.orderStatus,
+          })}
+        />
+        <MiniPanel
+          title="Notification Feed"
+          description="Recent platform notifications"
+          icon={Bell}
+          rows={dashboard.recentNotifications}
+          empty="No notifications found."
+          render={(item) => ({
+            key: item._id,
+            title: item.title,
+            meta: item.userId?.name || item.type || "System",
+            badge: item.isRead ? "Read" : "Unread",
+          })}
+        />
+      </section>
+
+      <section className="mt-7 grid gap-6 xl:grid-cols-4">
+        <InsightPanel
+          title="Payment Activity"
+          icon={CreditCard}
+          items={[
+            ["Paid", dashboard.paymentActivity?.paid || 0],
+            ["Pending", dashboard.paymentActivity?.pending || 0],
+            ["Failed", dashboard.paymentActivity?.failed || 0],
+            ["Refunded", dashboard.paymentActivity?.refunded || 0],
+          ]}
+        />
+        <InsightPanel
+          title="Low Stock"
+          icon={AlertTriangle}
+          items={
+            dashboard.lowStockProducts?.length
+              ? dashboard.lowStockProducts.map((product) => [
+                  product.productName,
+                  `${product.stock} left`,
+                ])
+              : [["Products", "All stocked"]]
+          }
+        />
+        <InsightPanel
+          title="Vaccination Reminders"
+          icon={Syringe}
+          items={[
+            ["Upcoming", dashboard.vaccinationSummary?.upcoming || 0],
+            ["Overdue", dashboard.vaccinationSummary?.overdue || 0],
+            ["Due to remind", dashboard.vaccinationSummary?.remindersDue || 0],
+          ]}
+        />
+        <InsightPanel
+          title="Complaints"
+          icon={Bell}
+          items={
+            dashboard.complaintSummary
+              ? [["Open", dashboard.complaintSummary.open || 0], ["Resolved", dashboard.complaintSummary.resolved || 0]]
+              : [["Status", "Not connected"]]
+          }
+        />
+      </section>
+
+      <section className="mt-7 rounded-2xl border border-white/10 bg-slate-900 p-5 shadow-lg shadow-black/10">
+        <div className="mb-5">
+          <h2 className="text-lg font-bold text-white">Quick Actions</h2>
+          <p className="mt-1 text-sm text-slate-500">Common admin workflows</p>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {[
+            ["Review Veterinarians", "/admin/veterinarians", Stethoscope],
+            ["Manage Orders", "/admin/orders", ShoppingBag],
+            ["Low Stock Products", "/admin/products", Package],
+            ["Vaccination Reminders", "/admin/vaccinations", Syringe],
+          ].map(([label, to, Icon]) => (
+            <Link key={to} to={to} className="group flex items-center gap-3 rounded-xl border border-white/10 bg-slate-950 p-4 transition hover:-translate-y-0.5 hover:border-cyan-300/40">
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-400/10 text-cyan-300">
+                <Icon size={20} />
+              </span>
+              <span className="font-semibold text-white transition group-hover:text-cyan-200">{label}</span>
+            </Link>
+          ))}
+        </div>
+      </section>
     </div>
   );
 };
+
+const MiniPanel = ({ title, description, icon: Icon, rows, empty, render }) => (
+  <section className="rounded-2xl border border-white/10 bg-slate-900 p-5 shadow-lg shadow-black/10">
+    <div className="mb-5 flex items-start gap-3">
+      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-cyan-400/10 text-cyan-300">
+        <Icon size={21} />
+      </span>
+      <div>
+        <h2 className="text-lg font-bold text-white">{title}</h2>
+        <p className="mt-1 text-sm text-slate-500">{description}</p>
+      </div>
+    </div>
+    {rows?.length ? (
+      <div className="space-y-3">
+        {rows.slice(0, 4).map((row) => {
+          const item = render(row);
+          return (
+            <div key={item.key} className="rounded-xl border border-white/10 bg-slate-950 p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="font-semibold text-white">{item.title}</p>
+                  <p className="mt-1 text-sm text-slate-500">{item.meta}</p>
+                </div>
+                <StatusBadge status={item.badge} />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    ) : (
+      <EmptyTable text={empty} />
+    )}
+  </section>
+);
+
+const InsightPanel = ({ title, icon: Icon, items }) => (
+  <section className="rounded-2xl border border-white/10 bg-slate-900 p-5 shadow-lg shadow-black/10">
+    <div className="mb-4 flex items-center gap-3">
+      <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-400/10 text-cyan-300">
+        <Icon size={20} />
+      </span>
+      <h2 className="font-bold text-white">{title}</h2>
+    </div>
+    <div className="space-y-3">
+      {items.map(([label, value]) => (
+        <div key={label} className="flex items-center justify-between gap-3 rounded-xl bg-slate-950 px-4 py-3">
+          <span className="min-w-0 truncate text-sm text-slate-400">{label}</span>
+          <span className="text-sm font-bold text-white">{value}</span>
+        </div>
+      ))}
+    </div>
+  </section>
+);
 
 const RecentUsers = ({ users }) => {
   return (

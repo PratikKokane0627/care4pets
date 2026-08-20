@@ -1406,25 +1406,97 @@ export const Orders = () => {
 
 export const Vaccinations = () => {
   const [status, setStatus] = useState("");
-  const endpoint = status ? `/admin/vaccinations?status=${status}` : "/admin/vaccinations?";
+  const [search, setSearch] = useState("");
+  const endpoint = useMemo(() => {
+    const params = new URLSearchParams();
+    if (status) params.set("status", status);
+    if (search.trim()) params.set("search", search.trim());
+    const query = params.toString();
+    return query ? `/admin/vaccinations?${query}` : "/admin/vaccinations?";
+  }, [search, status]);
+
+  const sendReminder = async (vaccination, refresh) => {
+    await api.post(`/admin/vaccinations/${getId(vaccination)}/reminder`);
+    toast.success("Vaccination reminder sent");
+    refresh();
+  };
+
   return (
     <ResourceShell
       title="Vaccinations"
-      description="View upcoming, completed and overdue pet vaccinations."
+      description="Track completed vaccination dates, next booster due dates, and owner reminders."
       endpoint={endpoint}
       keys={["vaccinations"]}
       filters={({ setPage }) => (
-        <FilterPanel>
-          <Field as="select" label="Status" value={status} onChange={(v) => { setStatus(v); setPage(1); }} options={[{ value: "", label: "All statuses" }, "upcoming", "completed", "overdue"].map((value) => typeof value === "string" ? { value, label: value || "All statuses" } : value)} />
+        <FilterPanel className="grid gap-4 lg:grid-cols-[1fr_340px]">
+          <Field
+            label="Search"
+            value={search}
+            onChange={(value) => {
+              setSearch(value);
+              setPage(1);
+            }}
+            placeholder="Search vaccine name"
+          />
+          <Field
+            as="select"
+            label="Status"
+            value={status}
+            onChange={(value) => {
+              setStatus(value);
+              setPage(1);
+            }}
+            options={[
+              { value: "", label: "All statuses" },
+              { value: "upcoming", label: "Upcoming" },
+              { value: "overdue", label: "Overdue" },
+              { value: "completed", label: "Completed" },
+            ]}
+          />
         </FilterPanel>
       )}
-      columns={() => [
-        { header: "Vaccine", render: (v) => <><p className="font-semibold text-white">{v.vaccineName}</p><p className="mt-1 text-xs text-slate-500">Dose {v.doseNumber || 1}</p></> },
+      columns={({ refresh }) => [
+        {
+          header: "Vaccine",
+          render: (v) => (
+            <>
+              <p className="font-semibold text-white">{v.vaccineName}</p>
+              <p className="mt-1 text-xs text-slate-500">Dose {v.doseNumber || 1}</p>
+              <p className="mt-1 text-xs text-cyan-300">
+                Given: {formatDate(v.vaccinationDate)}
+              </p>
+            </>
+          ),
+        },
         { header: "Pet", render: (v) => v.petId?.petName || "Pet" },
         { header: "Owner", render: (v) => userName(v.ownerId) },
-        { header: "Due", render: (v) => v.overdueDays !== undefined ? `Overdue by ${v.overdueDays} days` : v.daysRemaining !== undefined ? `Due in ${v.daysRemaining} days` : formatDate(v.nextDueDate) },
+        {
+          header: "Due",
+          render: (v) => (
+            <>
+              <p className="font-medium text-white">{v.dueLabel || formatDate(v.nextDueDate)}</p>
+              {v.nextDueDate && (
+                <p className="mt-1 text-xs text-slate-500">
+                  Next due: {formatDate(v.nextDueDate)}
+                </p>
+              )}
+            </>
+          ),
+        },
         { header: "Status", render: (v) => <StatusBadge status={v.calculatedStatus || v.status} /> },
-        { header: "Reminder", render: () => <Button variant="ghost" disabled>Send Later</Button> },
+        {
+          header: "Reminder",
+          render: (v) => (
+            <Button
+              variant={v.canSendReminder ? "primary" : "ghost"}
+              disabled={!v.canSendReminder}
+              onClick={() => sendReminder(v, refresh)}
+            >
+              <Bell size={16} />
+              {v.reminderLabel || "Send Later"}
+            </Button>
+          ),
+        },
       ]}
       emptyTitle="No vaccinations found"
     />
