@@ -5,6 +5,7 @@ const statusStyles = {
   delivered: "bg-emerald-500/15 text-emerald-400",
 
   pending: "bg-amber-500/15 text-amber-400",
+  upcoming: "bg-cyan-500/15 text-cyan-400",
   scheduled: "bg-cyan-500/15 text-cyan-400",
   confirmed: "bg-cyan-500/15 text-cyan-400",
 
@@ -12,6 +13,7 @@ const statusStyles = {
   blocked: "bg-red-500/15 text-red-400",
   rejected: "bg-red-500/15 text-red-400",
   cancelled: "bg-red-500/15 text-red-400",
+  overdue: "bg-red-500/15 text-red-400",
 
   processing: "bg-indigo-500/15 text-indigo-400",
   shipped: "bg-violet-500/15 text-violet-400",

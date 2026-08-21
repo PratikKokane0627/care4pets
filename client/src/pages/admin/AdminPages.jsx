@@ -692,7 +692,13 @@ export const PetDetails = () => {
       </Panel>
       <div className="grid gap-5 xl:grid-cols-2">
         <ReportPanel title="Recent Medical Visits" rows={(data.medicalHistory || []).map((item) => ({ _id: item.reason || "Visit", count: formatDate(item.appointmentDate) }))} />
-        <ReportPanel title="Vaccinations" rows={(data.vaccinations || []).map((item) => ({ _id: item.vaccineName, count: item.status }))} />
+        <ReportPanel
+          title="Vaccinations"
+          rows={(data.vaccinations || []).map((item) => ({
+            _id: item.vaccineName,
+            count: item.dueLabel || item.calculatedStatus || item.status,
+          }))}
+        />
       </div>
     </main>
   );
