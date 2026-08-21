@@ -3,8 +3,10 @@ import uploadToCloudinary from "../utils/uploadToCloudinary.js";
 import deleteUploadedImage from "../utils/deleteUploadedImage.js";
 import Pet from "../models/Pet.js";
 import Appointment from "../models/Appointment.js";
+import Vaccination from "../models/Vaccination.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import ApiError from "../utils/ApiError.js";
+import { getPetVaccinationState } from "../utils/vaccinationState.js";
 
 export const addPet = asyncHandler(async (req, res) => {
   const {
@@ -53,13 +55,36 @@ export const getMyPets = asyncHandler(async (req, res) => {
   const pets = await Pet.find({
     ownerId: req.user._id,
     isActive: true,
-  }).sort({ createdAt: -1 });
+  }).sort({ createdAt: -1 }).lean();
+
+  const vaccinations = pets.length
+    ? await Vaccination.find({
+        ownerId: req.user._id,
+        petId: { $in: pets.map((pet) => pet._id) },
+        isActive: true,
+      })
+        .select("petId vaccinationDate nextDueDate status")
+        .lean()
+    : [];
+
+  const vaccinationsByPetId = vaccinations.reduce((map, vaccination) => {
+    const key = vaccination.petId.toString();
+    if (!map.has(key)) map.set(key, []);
+    map.get(key).push(vaccination);
+    return map;
+  }, new Map());
+
+  const petsWithVaccinationStatus = pets.map((pet) => ({
+    ...pet,
+    ...getPetVaccinationState(vaccinationsByPetId.get(pet._id.toString()) || []),
+    storedVaccinationStatus: pet.vaccinationStatus,
+  }));
 
   res.status(200).json({
     success: true,
     message: "Pets fetched successfully",
-    count: pets.length,
-    pets,
+    count: petsWithVaccinationStatus.length,
+    pets: petsWithVaccinationStatus,
   });
 });
 
@@ -83,10 +108,22 @@ export const getPetById = asyncHandler(async (req, res) => {
     throw new ApiError(404, "Pet not found");
   }
 
+  const vaccinations = await Vaccination.find({
+    petId: pet._id,
+    ownerId: req.user._id,
+    isActive: true,
+  }).select("vaccinationDate nextDueDate status");
+
+  const computedPet = {
+    ...pet.toObject(),
+    ...getPetVaccinationState(vaccinations),
+    storedVaccinationStatus: pet.vaccinationStatus,
+  };
+
   res.status(200).json({
     success: true,
     message: "Pet fetched successfully",
-    pet,
+    pet: computedPet,
   });
 });
 

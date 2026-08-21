@@ -3,6 +3,10 @@ import Vaccination from "../models/Vaccination.js";
 import Pet from "../models/Pet.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import ApiError from "../utils/ApiError.js";
+import {
+  startOfDay,
+  withVaccinationState,
+} from "../utils/vaccinationState.js";
 
 const syncPetVaccinationStatus = async (petId) => {
   const hasVaccination = await Vaccination.exists({
@@ -110,8 +114,6 @@ export const getMyVaccinations = asyncHandler(async (req, res) => {
     if (!allowedStatuses.includes(status)) {
       throw new ApiError(400, "Invalid vaccination status");
     }
-
-    filter.status = status;
   }
 
   if (search?.trim()) {
@@ -127,8 +129,6 @@ export const getMyVaccinations = asyncHandler(async (req, res) => {
     100
   );
 
-  const skip = (pageNumber - 1) * limitNumber;
-
   const sortOptions = {
     newest: { vaccinationDate: -1 },
     oldest: { vaccinationDate: 1 },
@@ -138,27 +138,35 @@ export const getMyVaccinations = asyncHandler(async (req, res) => {
 
   const sortOption = sortOptions[sort] || sortOptions.newest;
 
-  const [vaccinations, total] = await Promise.all([
-    Vaccination.find(filter)
-      .populate(
-        "petId",
-        "petName species breed profileImage vaccinationStatus"
-      )
-      .populate({
-        path: "veterinarian",
-        select:
-          "specialization clinicName profileImage userId",
-        populate: {
-          path: "userId",
-          select: "name email phone",
-        },
-      })
-      .sort(sortOption)
-      .skip(skip)
-      .limit(limitNumber),
+  const vaccinations = await Vaccination.find(filter)
+    .populate(
+      "petId",
+      "petName species breed profileImage vaccinationStatus"
+    )
+    .populate({
+      path: "veterinarian",
+      select:
+        "specialization clinicName profileImage userId",
+      populate: {
+        path: "userId",
+        select: "name email phone",
+      },
+    })
+    .sort(sortOption);
 
-    Vaccination.countDocuments(filter),
-  ]);
+  const today = startOfDay();
+  const filteredVaccinations = vaccinations
+    .map((vaccination) => withVaccinationState(vaccination, today))
+    .filter(
+      (vaccination) =>
+        !status || vaccination.calculatedStatus === status
+    );
+
+  const total = filteredVaccinations.length;
+  const pagedVaccinations = filteredVaccinations.slice(
+    (pageNumber - 1) * limitNumber,
+    pageNumber * limitNumber
+  );
 
   res.status(200).json({
     success: true,
@@ -169,7 +177,7 @@ export const getMyVaccinations = asyncHandler(async (req, res) => {
       limit: limitNumber,
       totalPages: Math.ceil(total / limitNumber),
     },
-    vaccinations,
+    vaccinations: pagedVaccinations,
   });
 });
 
@@ -209,7 +217,7 @@ export const getVaccinationById = asyncHandler(async (req, res) => {
   res.status(200).json({
     success: true,
     message: "Vaccination record fetched successfully",
-    vaccination,
+    vaccination: withVaccinationState(vaccination),
   });
 });
 
@@ -386,20 +394,9 @@ export const getUpcomingVaccinations = asyncHandler(async (req, res) => {
     })
     .sort({ nextDueDate: 1 });
 
-  const upcomingVaccinations = vaccinations.map((vaccination) => {
-    const millisecondsPerDay = 1000 * 60 * 60 * 24;
-
-    const daysRemaining = Math.ceil(
-      (new Date(vaccination.nextDueDate) - today) /
-        millisecondsPerDay
-    );
-
-    return {
-      ...vaccination.toObject(),
-      calculatedStatus: "upcoming",
-      daysRemaining,
-    };
-  });
+  const upcomingVaccinations = vaccinations.map((vaccination) =>
+    withVaccinationState(vaccination, today)
+  );
 
   res.status(200).json({
     success: true,
@@ -436,18 +433,9 @@ export const getOverdueVaccinations = asyncHandler(async (req, res) => {
     })
     .sort({ nextDueDate: 1 });
 
-  const overdueVaccinations = vaccinations.map((vaccination) => {
-    const overdueDays = Math.ceil(
-      (today - new Date(vaccination.nextDueDate)) /
-      (1000 * 60 * 60 * 24)
-    );
-
-    return {
-      ...vaccination.toObject(),
-      calculatedStatus: "overdue",
-      overdueDays,
-    };
-  });
+  const overdueVaccinations = vaccinations.map((vaccination) =>
+    withVaccinationState(vaccination, today)
+  );
 
   res.status(200).json({
     success: true,

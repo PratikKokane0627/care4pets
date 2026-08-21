@@ -14,6 +14,12 @@ import GroomerProfile from "../models/GroomerProfile.js";
 import ApiError from "../utils/ApiError.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import deleteAccountData from "./accountCleanupController.js";
+import {
+  getPetVaccinationState,
+  getVaccinationReminderState,
+  startOfDay,
+  withVaccinationState,
+} from "../utils/vaccinationState.js";
 
 const parsePagination = (query) => {
   const page = Math.max(Number(query.page) || 1, 1);
@@ -59,72 +65,6 @@ const dateRange = (query) => {
 
 const escapeRegex = (value) =>
   value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-
-const startOfDay = (value = new Date()) => {
-  const date = new Date(value);
-  date.setHours(0, 0, 0, 0);
-  return date;
-};
-
-const getVaccinationReminderState = (vaccination, today = startOfDay()) => {
-  if (!vaccination.nextDueDate) {
-    return {
-      calculatedStatus: "completed",
-      dueLabel: "Vaccination completed",
-      reminderLabel: "Disabled",
-      canSendReminder: false,
-      reminderKind: "disabled",
-    };
-  }
-
-  const dueDate = startOfDay(vaccination.nextDueDate);
-  const daysUntilDue = Math.round(
-    (dueDate - today) / (1000 * 60 * 60 * 24)
-  );
-
-  if (daysUntilDue < 0) {
-    const overdueDays = Math.abs(daysUntilDue);
-    return {
-      calculatedStatus: "overdue",
-      dueLabel: `Overdue by ${overdueDays} day${overdueDays === 1 ? "" : "s"}`,
-      reminderLabel: "Send Overdue Reminder",
-      canSendReminder: true,
-      reminderKind: "overdue",
-      overdueDays,
-    };
-  }
-
-  if (daysUntilDue === 0) {
-    return {
-      calculatedStatus: "upcoming",
-      dueLabel: "Due today",
-      reminderLabel: "Send Due Reminder",
-      canSendReminder: true,
-      reminderKind: "due-today",
-      daysRemaining: 0,
-    };
-  }
-
-  if (daysUntilDue === 1) {
-    return {
-      calculatedStatus: "upcoming",
-      dueLabel: "Next dose due tomorrow",
-      reminderLabel: "Send Final Reminder",
-      canSendReminder: true,
-      reminderKind: "final",
-      daysRemaining: 1,
-    };
-  }
-
-  return {
-    calculatedStatus: "upcoming",
-    dueLabel: `Next dose due in ${daysUntilDue} days`,
-    reminderLabel: daysUntilDue <= 7 ? "Send Reminder" : "Send Later",
-    canSendReminder: daysUntilDue <= 7,
-    reminderKind: daysUntilDue <= 7 ? "first" : "send-later",
-    daysRemaining: daysUntilDue,
-  };
-};
 
 export const getDashboard = asyncHandler(async (req, res) => {
   const [
@@ -255,26 +195,58 @@ export const getDashboard = asyncHandler(async (req, res) => {
 export const getPets = asyncHandler(async (req, res) => {
   const { page, limit, skip } = parsePagination(req.query);
   const filter = { isActive: true };
+  const requestedVaccinationStatus = req.query.vaccinationStatus;
 
   if (req.query.species) filter.species = req.query.species;
-  if (req.query.vaccinationStatus) {
-    filter.vaccinationStatus = req.query.vaccinationStatus;
-  }
   if (req.query.search?.trim()) {
     const search = new RegExp(escapeRegex(req.query.search.trim()), "i");
     filter.$or = [{ petName: search }, { species: search }, { breed: search }];
   }
 
-  const [pets, total] = await Promise.all([
+  const [pets, totalBeforeComputedFilter] = await Promise.all([
     Pet.find(filter)
       .populate("ownerId", "name email phone")
       .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit),
+      .lean(),
     Pet.countDocuments(filter),
   ]);
 
-  res.json({ success: true, pets, pagination: pagination(page, limit, total) });
+  const vaccinations = pets.length
+    ? await Vaccination.find({
+        petId: { $in: pets.map((pet) => pet._id) },
+        isActive: true,
+      })
+        .select("petId vaccinationDate nextDueDate status")
+        .lean()
+    : [];
+
+  const vaccinationsByPetId = vaccinations.reduce((map, vaccination) => {
+    const key = vaccination.petId.toString();
+    if (!map.has(key)) map.set(key, []);
+    map.get(key).push(vaccination);
+    return map;
+  }, new Map());
+
+  const petsWithVaccinationStatus = pets.map((pet) => ({
+    ...pet,
+    ...getPetVaccinationState(vaccinationsByPetId.get(pet._id.toString()) || []),
+    storedVaccinationStatus: pet.vaccinationStatus,
+  }));
+
+  const filteredPets = requestedVaccinationStatus
+    ? petsWithVaccinationStatus.filter(
+        (pet) =>
+          String(pet.vaccinationStatus).toLowerCase() ===
+          String(requestedVaccinationStatus).toLowerCase()
+      )
+    : petsWithVaccinationStatus;
+
+  const total = requestedVaccinationStatus
+    ? filteredPets.length
+    : totalBeforeComputedFilter;
+  const pagedPets = filteredPets.slice(skip, skip + limit);
+
+  res.json({ success: true, pets: pagedPets, pagination: pagination(page, limit, total) });
 });
 
 export const getPetById = asyncHandler(async (req, res) => {
@@ -296,7 +268,19 @@ export const getPetById = asyncHandler(async (req, res) => {
       .limit(20),
   ]);
 
-  res.json({ success: true, pet, medicalHistory, vaccinations });
+  const today = startOfDay();
+  const computedPet = {
+    ...pet.toObject(),
+    ...getPetVaccinationState(vaccinations, today),
+    storedVaccinationStatus: pet.vaccinationStatus,
+  };
+
+  res.json({
+    success: true,
+    pet: computedPet,
+    medicalHistory,
+    vaccinations: vaccinations.map((item) => withVaccinationState(item, today)),
+  });
 });
 
 export const getVaccinations = asyncHandler(async (req, res) => {
@@ -349,14 +333,7 @@ export const getVaccinations = asyncHandler(async (req, res) => {
 
   res.json({
     success: true,
-    vaccinations: vaccinations.map((item) => {
-      const reminder = getVaccinationReminderState(item, today);
-      return {
-        ...item.toObject(),
-        vaccinationCompleted: Boolean(item.vaccinationDate),
-        ...reminder,
-      };
-    }),
+    vaccinations: vaccinations.map((item) => withVaccinationState(item, today)),
     pagination: pagination(page, limit, total),
   });
 });
